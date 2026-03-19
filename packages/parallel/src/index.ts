@@ -1,7 +1,16 @@
 // @ultracoder/parallel — decomposer, scope tracker, merge queue, reconciler
 
-export { decomposeTask } from "./decomposer.js";
-export type { SubTask, DecompositionResult } from "./decomposer.js";
+export {
+	decomposeTask,
+	parseDecompositionOutput,
+	validateScopes,
+	buildExecutionOrder,
+} from "./decomposer.js";
+export type {
+	SubTask,
+	DecompositionResult,
+	DecomposerConfig,
+} from "./decomposer.js";
 
 export { ScopeTracker, executeHandoff } from "./scope-tracker.js";
 export type { ScopeEntry, ScopeEvent, HandoffRequest } from "./scope-tracker.js";

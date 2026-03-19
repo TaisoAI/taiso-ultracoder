@@ -23,7 +23,7 @@ export type {
 export { runGates } from "./gates.js";
 export type { GateConfig, GateResult, GatesResult } from "./gates.js";
 
-export { reviewDiff } from "./reviewer.js";
+export { reviewDiff, parseReviewOutput } from "./reviewer.js";
 export type { ReviewerConfig } from "./reviewer.js";
 
 export { runQualityPipeline } from "./pipeline.js";
