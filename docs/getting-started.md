@@ -83,12 +83,34 @@ uc status -s abc12345
 
 # Output as JSON (for scripting)
 uc status --json
+
+# Live terminal dashboard with session status, costs, warnings
+uc dashboard
+
+# Stream live session output
+uc watch abc12345
+
+# View session logs
+uc logs abc12345
 ```
 
 ## Send Follow-up Instructions
 
 ```bash
 uc send abc12345 "Also add server-side validation, not just client-side"
+```
+
+## Start, Stop, and Batch Operations
+
+```bash
+# Resume a spawning or failed session
+uc start abc12345
+
+# Gracefully pause a working session
+uc stop abc12345
+
+# Spawn multiple sessions from a task file
+uc batch-spawn tasks.yaml
 ```
 
 ## Finish Up

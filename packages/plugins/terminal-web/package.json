@@ -1,14 +1,11 @@
 {
-  "name": "@ultracoder/plugin-agent-codex",
+  "name": "@ultracoder/plugin-terminal-web",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }
   },
   "dependencies": {
     "@ultracoder/core": "workspace:*"
@@ -24,7 +21,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/TaisoAI/taiso-ultracoder.git",
-    "directory": "packages/plugins/agent-codex"
+    "directory": "packages/plugins/terminal-web"
   },
   "files": [
     "dist",

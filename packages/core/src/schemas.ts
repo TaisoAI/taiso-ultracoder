@@ -90,6 +90,23 @@ export const PricingSchema = z
 		o3: { input: 10.0, output: 40.0 },
 	});
 
+// ─── LLM Endpoint Configuration ────────────────────────────────────
+export const LLMEndpointSchema = z.object({
+	url: z.string().url(),
+	apiKey: z.string().optional(),
+	weight: z.number().positive().default(1),
+	models: z.array(z.string()).optional(),
+});
+
+export const LLMConfigSchema = z
+	.object({
+		endpoints: z.array(LLMEndpointSchema).default([]),
+		defaultModel: z.string().optional(),
+		maxRetries: z.number().nonnegative().default(3),
+		timeoutMs: z.number().positive().default(120000),
+	})
+	.default({});
+
 // ─── Project Configuration ──────────────────────────────────────────
 export const ProjectConfigSchema = z.object({
 	projectId: z.string().min(1),
@@ -98,6 +115,7 @@ export const ProjectConfigSchema = z.object({
 	session: SessionConfigSchema.default({}),
 	plugins: z.record(PluginRefSchema).default({}),
 	pricing: PricingSchema,
+	llm: LLMConfigSchema,
 	storageBackend: z.enum(["file", "sqlite"]).default("file"),
 	workspace: z
 		.object({

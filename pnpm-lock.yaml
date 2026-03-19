@@ -102,6 +102,12 @@ importers:
         specifier: workspace:*
         version: link:../../core
 
+  packages/plugins/terminal-web:
+    dependencies:
+      '@ultracoder/core':
+        specifier: workspace:*
+        version: link:../../core
+
   packages/plugins/tracker-github:
     dependencies:
       '@ultracoder/core':

@@ -16,7 +16,8 @@ const CONFIG_FILENAMES = [
  * Search order for config files:
  * 1. Explicit path (if provided)
  * 2. Project directory (cwd or specified)
- * 3. Home directory (~/.ultracoder/)
+ * 3. Parent directories (walk up to root)
+ * 4. Home directory (~/.ultracoder/)
  */
 export async function loadConfig(opts?: {
 	configPath?: string;
@@ -38,7 +39,22 @@ export async function loadConfig(opts?: {
 		}
 	}
 
-	// 3. Search home directory
+	// 3. Walk up parent directories
+	let currentDir = projectDir;
+	while (true) {
+		const parentDir = path.dirname(currentDir);
+		if (parentDir === currentDir) break; // reached root
+		for (const filename of CONFIG_FILENAMES) {
+			const filePath = path.join(parentDir, filename);
+			const content = await safeRead(filePath);
+			if (content !== undefined) {
+				return parseConfigContent(content, filePath);
+			}
+		}
+		currentDir = parentDir;
+	}
+
+	// 4. Search home directory
 	const homeDir = process.env.HOME ?? process.env.USERPROFILE ?? "";
 	const homeConfigDir = path.join(homeDir, ".ultracoder");
 	for (const filename of CONFIG_FILENAMES) {

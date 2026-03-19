@@ -163,10 +163,16 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 |---------|-------------|
 | `uc init` | Initialize ultracoder.yaml in current project |
 | `uc spawn <task>` | Spawn a new agent session |
+| `uc start <id>` | Resume a spawning or failed session |
+| `uc stop <id>` | Gracefully pause a working session |
 | `uc send <id> <message>` | Send a message to a working session |
 | `uc status` | List all sessions |
 | `uc status -s <id> --json` | Detailed session info as JSON |
 | `uc kill <id>` | Kill runtime, archive session |
+| `uc batch-spawn <file>` | Spawn sessions from a task file |
+| `uc watch <id>` | Stream live session output |
+| `uc logs <id>` | View session logs |
+| `uc dashboard` | Live terminal dashboard with session status, costs, warnings |
 | `uc cleanup` | Remove old terminal sessions (default: >7 days) |
 | `uc cleanup --all` | Remove all terminal sessions |
 | `uc doctor` | Check system health and dependencies |
@@ -176,8 +182,8 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 ```bash
 pnpm install        # Install dependencies
 pnpm build          # Build all 16 packages
-pnpm test           # Run 264 tests
-pnpm lint           # Check 84 files with Biome
+pnpm test           # Run 434+ tests
+pnpm lint           # Check 107+ files with Biome
 pnpm lint:fix       # Auto-fix lint issues
 ```
 
@@ -192,12 +198,12 @@ pnpm lint:fix       # Auto-fix lint issues
 
 ### Monorepo Structure
 
-16 packages, 264 tests, all managed with pnpm workspaces + Turborepo:
+16 packages, 434+ tests, all managed with pnpm workspaces + Turborepo:
 
 | Package | Tests | Description |
 |---------|-------|-------------|
 | `@ultracoder/core` | 38 | Types, schemas, plugin registry, config, session manager, paths, logger, utilities |
-| `@ultracoder/cli` | 1 | Commander.js CLI with 8 commands |
+| `@ultracoder/cli` | 1 | Commander.js CLI with 13 commands |
 | `@ultracoder/quality` | 68 | Veracity (regex + filesystem), tool policy (4-tier + rules engine), gates, pipeline |
 | `@ultracoder/lifecycle` | 84 | 13-state machine, reactions with escalation, intent classifier, activity detection |
 | `@ultracoder/parallel` | 9 | Scope tracker, merge queue, reconciler |

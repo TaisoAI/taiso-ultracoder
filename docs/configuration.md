@@ -8,6 +8,8 @@ Ultracoder uses YAML configuration files. Settings are loaded from the first fil
 
 If no config file is found, defaults are used with the project ID derived from the directory name.
 
+**Note:** Ultracoder also walks up the directory tree from the current working directory, checking each parent directory for a config file. This allows nested projects to inherit configuration from a parent project.
+
 ## Full Reference
 
 ```yaml
@@ -19,6 +21,19 @@ rootPath: .
 
 # Default branch for the project
 defaultBranch: main  # default: "main"
+
+# Storage backend: "file" (JSONL, default) or "sqlite" (future)
+storageBackend: file  # default: "file"
+
+# LLM endpoint configuration (weighted routing)
+llm:
+  endpoints:
+    - url: https://api.anthropic.com
+      weight: 80   # 80% of requests
+      apiKey: ${ANTHROPIC_API_KEY}
+    - url: https://openrouter.ai/api
+      weight: 20   # 20% of requests
+      apiKey: ${OPENROUTER_API_KEY}
 
 # Session configuration
 session:

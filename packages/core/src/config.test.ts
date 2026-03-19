@@ -37,6 +37,39 @@ describe("loadConfig", () => {
 		const config = await loadConfig({ configPath });
 		expect(config.projectId).toBe("custom");
 	});
+
+	it("finds config in parent directory", async () => {
+		const childDir = path.join(tmpDir, "child");
+		await fs.promises.mkdir(childDir, { recursive: true });
+		const yaml = `projectId: parent-config\nrootPath: ${tmpDir}\n`;
+		await fs.promises.writeFile(path.join(tmpDir, "ultracoder.yaml"), yaml);
+		const config = await loadConfig({ projectDir: childDir });
+		expect(config.projectId).toBe("parent-config");
+	});
+
+	it("finds config in grandparent directory", async () => {
+		const grandchildDir = path.join(tmpDir, "child", "grandchild");
+		await fs.promises.mkdir(grandchildDir, { recursive: true });
+		const yaml = `projectId: grandparent-config\nrootPath: ${tmpDir}\n`;
+		await fs.promises.writeFile(path.join(tmpDir, "ultracoder.yaml"), yaml);
+		const config = await loadConfig({ projectDir: grandchildDir });
+		expect(config.projectId).toBe("grandparent-config");
+	});
+
+	it("project dir config takes precedence over parent dir config", async () => {
+		const childDir = path.join(tmpDir, "child");
+		await fs.promises.mkdir(childDir, { recursive: true });
+		await fs.promises.writeFile(
+			path.join(tmpDir, "ultracoder.yaml"),
+			`projectId: parent-config\nrootPath: ${tmpDir}\n`,
+		);
+		await fs.promises.writeFile(
+			path.join(childDir, "ultracoder.yaml"),
+			`projectId: child-config\nrootPath: ${childDir}\n`,
+		);
+		const config = await loadConfig({ projectDir: childDir });
+		expect(config.projectId).toBe("child-config");
+	});
 });
 
 describe("mergeConfig", () => {

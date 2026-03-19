@@ -51,6 +51,8 @@ export { PLUGIN_SLOTS } from "./types.js";
 // Zod schemas
 export {
 	AgentConfigSchema,
+	LLMConfigSchema,
+	LLMEndpointSchema,
 	PluginRefSchema,
 	ProjectConfigSchema,
 	QualityConfigSchema,
@@ -74,6 +76,10 @@ export { DefaultPluginRegistry, loadPlugin } from "./plugin-registry.js";
 
 // Configuration
 export { loadConfig, mergeConfig } from "./config.js";
+
+// LLM Router
+export { WeightedRouter } from "./llm-router.js";
+export type { LLMEndpoint } from "./llm-router.js";
 
 // Session manager
 export { FileSessionManager } from "./session-manager.js";
