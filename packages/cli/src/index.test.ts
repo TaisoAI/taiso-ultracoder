@@ -10,6 +10,9 @@ describe("CLI", () => {
 		const commandNames = program.commands.map((c) => c.name());
 		expect(commandNames).toContain("init");
 		expect(commandNames).toContain("spawn");
+		expect(commandNames).toContain("start");
+		expect(commandNames).toContain("stop");
+		expect(commandNames).toContain("batch-spawn");
 		expect(commandNames).toContain("send");
 		expect(commandNames).toContain("status");
 		expect(commandNames).toContain("kill");
@@ -17,7 +20,8 @@ describe("CLI", () => {
 		expect(commandNames).toContain("doctor");
 		expect(commandNames).toContain("watch");
 		expect(commandNames).toContain("logs");
-		expect(commandNames).toHaveLength(9);
+		expect(commandNames).toContain("dashboard");
+		expect(commandNames).toHaveLength(13);
 	});
 });
 

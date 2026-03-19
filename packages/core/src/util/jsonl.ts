@@ -17,10 +17,16 @@ export async function appendJsonl(filePath: string, record: unknown): Promise<vo
 export async function readJsonl<T = unknown>(filePath: string): Promise<T[]> {
 	try {
 		const content = await fs.promises.readFile(filePath, "utf-8");
-		return content
-			.split("\n")
-			.filter((line) => line.trim().length > 0)
-			.map((line) => JSON.parse(line) as T);
+		const results: T[] = [];
+		for (const line of content.split("\n")) {
+			if (line.trim().length === 0) continue;
+			try {
+				results.push(JSON.parse(line) as T);
+			} catch {
+				// Skip malformed lines
+			}
+		}
+		return results;
 	} catch (err) {
 		if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
 		throw err;
@@ -45,7 +51,11 @@ export async function streamJsonl<T = unknown>(
 
 	for await (const line of rl) {
 		if (line.trim().length > 0) {
-			await handler(JSON.parse(line) as T);
+			try {
+				await handler(JSON.parse(line) as T);
+			} catch {
+				// Skip malformed lines
+			}
 		}
 	}
 }

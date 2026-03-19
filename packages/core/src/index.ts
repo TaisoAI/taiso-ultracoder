@@ -77,3 +77,9 @@ export { loadConfig, mergeConfig } from "./config.js";
 
 // Session manager
 export { FileSessionManager } from "./session-manager.js";
+export { createSessionManager } from "./session-manager-factory.js";
+export type { StorageBackend, SessionManagerFactoryOpts } from "./session-manager-factory.js";
+
+// Orchestrator
+export { Orchestrator } from "./orchestrator.js";
+export type { OrchestratorConfig, OrchestratorCallbacks } from "./orchestrator.js";

@@ -6,10 +6,31 @@ import { atomicWrite, safeRead } from "./util/atomic.js";
 export class FileSessionManager implements SessionManager {
 	private readonly paths: PathResolver;
 	private readonly logger: Logger;
+	private readonly locks = new Map<string, Promise<void>>();
 
 	constructor(paths: PathResolver, logger: Logger) {
 		this.paths = paths;
 		this.logger = logger.child({ component: "session-manager" });
+	}
+
+	private async withLock<T>(id: string, fn: () => Promise<T>): Promise<T> {
+		// Wait for any existing lock on this session
+		while (this.locks.has(id)) {
+			await this.locks.get(id);
+		}
+
+		let resolve: () => void;
+		const lockPromise = new Promise<void>((r) => {
+			resolve = r;
+		});
+		this.locks.set(id, lockPromise);
+
+		try {
+			return await fn();
+		} finally {
+			this.locks.delete(id);
+			resolve!();
+		}
 	}
 
 	async create(opts: Omit<Session, "id" | "createdAt" | "updatedAt" | "status">): Promise<Session> {
@@ -43,22 +64,24 @@ export class FileSessionManager implements SessionManager {
 	}
 
 	async update(id: string, patch: Partial<Session>): Promise<Session> {
-		const existing = await this.get(id);
-		if (!existing) {
-			throw new Error(`Session '${id}' not found`);
-		}
+		return this.withLock(id, async () => {
+			const existing = await this.get(id);
+			if (!existing) {
+				throw new Error(`Session '${id}' not found`);
+			}
 
-		const updated: Session = {
-			...existing,
-			...patch,
-			id, // Never allow changing id
-			createdAt: existing.createdAt, // Never allow changing creation time
-			updatedAt: new Date().toISOString(),
-		};
+			const updated: Session = {
+				...existing,
+				...patch,
+				id, // Never allow changing id
+				createdAt: existing.createdAt, // Never allow changing creation time
+				updatedAt: new Date().toISOString(),
+			};
 
-		await atomicWrite(this.paths.sessionFile(id), JSON.stringify(updated, null, "\t"));
-		this.logger.debug(`Updated session '${id}'`, { status: updated.status });
-		return updated;
+			await atomicWrite(this.paths.sessionFile(id), JSON.stringify(updated, null, "\t"));
+			this.logger.debug(`Updated session '${id}'`, { status: updated.status });
+			return updated;
+		});
 	}
 
 	async list(filter?: Partial<Pick<Session, "status" | "projectId">>): Promise<Session[]> {
@@ -89,19 +112,27 @@ export class FileSessionManager implements SessionManager {
 	}
 
 	async archive(id: string): Promise<void> {
-		const session = await this.get(id);
-		if (!session) {
-			throw new Error(`Session '${id}' not found`);
-		}
+		return this.withLock(id, async () => {
+			const session = await this.get(id);
+			if (!session) {
+				throw new Error(`Session '${id}' not found`);
+			}
 
-		const updated = await this.update(id, { status: "archived" });
-		const archivePath = `${this.paths.archiveDir()}/${id}`;
-		await fs.promises.mkdir(this.paths.archiveDir(), { recursive: true });
+			const updated: Session = {
+				...session,
+				status: "archived",
+				updatedAt: new Date().toISOString(),
+			};
+			await atomicWrite(this.paths.sessionFile(id), JSON.stringify(updated, null, "\t"));
 
-		const sessionDir = this.paths.sessionDir(id);
-		await fs.promises.rename(sessionDir, archivePath);
+			const archivePath = `${this.paths.archiveDir()}/${id}`;
+			await fs.promises.mkdir(this.paths.archiveDir(), { recursive: true });
 
-		this.logger.info(`Archived session '${id}'`);
+			const sessionDir = this.paths.sessionDir(id);
+			await fs.promises.rename(sessionDir, archivePath);
+
+			this.logger.info(`Archived session '${id}'`);
+		});
 	}
 
 	async delete(id: string): Promise<void> {

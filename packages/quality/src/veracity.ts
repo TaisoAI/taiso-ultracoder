@@ -122,23 +122,95 @@ export function checkVeracityRegex(content: string): VeracityFinding[] {
 	return findings;
 }
 
+const GROUNDING_PROMPT_TEMPLATE = `You are a factual accuracy checker. Review the following text and identify any claims that are:
+- Unsubstantiated (no evidence provided)
+- Potentially hallucinated (claiming something was done without proof)
+- Factually questionable (version numbers, API details, etc.)
+
+Text to check:
+{content}
+
+For each finding, respond with one line in this format:
+FINDING:<severity>:<line_number>:<description>
+
+Where severity is one of: info, warn, error
+
+If no issues found, respond with: NO_ISSUES
+
+Example:
+FINDING:warn:5:Claims "all tests pass" but no test output shown
+FINDING:error:12:References API endpoint that doesn't exist in the codebase`;
+
+const VALID_SEVERITIES = new Set(["info", "warn", "error"]);
+
 /**
- * Tier 2: LLM-grounded veracity check (placeholder).
- * Sends content to a second LLM for factual verification.
+ * Parse raw LLM output from the grounding check into VeracityFindings.
+ */
+export function parseLLMVeracityOutput(output: string): VeracityFinding[] {
+	const trimmed = output.trim();
+	if (!trimmed) return [];
+	if (trimmed === "NO_ISSUES") return [];
+
+	const findings: VeracityFinding[] = [];
+
+	for (const raw of trimmed.split("\n")) {
+		const line = raw.trim();
+		if (!line.startsWith("FINDING:")) continue;
+
+		// FINDING:<severity>:<line_number>:<description>
+		const rest = line.slice("FINDING:".length);
+		const firstColon = rest.indexOf(":");
+		if (firstColon < 0) continue;
+
+		const severity = rest.slice(0, firstColon);
+		if (!VALID_SEVERITIES.has(severity)) continue;
+
+		const afterSeverity = rest.slice(firstColon + 1);
+		const secondColon = afterSeverity.indexOf(":");
+		if (secondColon < 0) continue;
+
+		const lineNumStr = afterSeverity.slice(0, secondColon);
+		const lineNum = Number.parseInt(lineNumStr, 10);
+		if (Number.isNaN(lineNum)) continue;
+
+		const description = afterSeverity.slice(secondColon + 1).trim();
+		if (!description) continue;
+
+		findings.push({
+			tier: "llm",
+			message: description,
+			line: lineNum,
+			severity: severity as "info" | "warn" | "error",
+		});
+	}
+
+	return findings;
+}
+
+/**
+ * Tier 2: LLM-grounded veracity check.
+ * Spawns an agent CLI process to verify factual claims in the content.
  */
 export async function checkVeracityLLM(
 	content: string,
-	_logger: Logger,
+	logger: Logger,
+	config?: { agentPath?: string; timeoutMs?: number },
 ): Promise<VeracityFinding[]> {
-	// Placeholder: In production, this would call a second LLM
-	// to verify factual claims in the content
-	return [
-		{
-			tier: "llm",
-			message: "LLM veracity check not yet implemented",
-			severity: "info",
-		},
-	];
+	const agentPath = config?.agentPath ?? "claude";
+	const timeoutMs = config?.timeoutMs ?? 120_000;
+
+	const prompt = GROUNDING_PROMPT_TEMPLATE.replace("{content}", content);
+
+	try {
+		const { stdout } = await execFile(agentPath, ["-p", prompt, "--output-format", "text"], {
+			timeout: timeoutMs,
+		});
+		return parseLLMVeracityOutput(stdout);
+	} catch (err: unknown) {
+		const message = err instanceof Error ? err.message : "Unknown veracity LLM error";
+		logger.warn("Veracity LLM check failed", { error: message });
+		return [];
+	}
 }
 
 /**

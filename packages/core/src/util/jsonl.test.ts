@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { appendJsonl, readJsonl, tailJsonl } from "./jsonl.js";
+import { appendJsonl, readJsonl, streamJsonl, tailJsonl } from "./jsonl.js";
 
 describe("JSONL utilities", () => {
 	let tmpDir: string;
@@ -26,6 +26,23 @@ describe("JSONL utilities", () => {
 	it("readJsonl returns empty array for missing file", async () => {
 		const records = await readJsonl(path.join(tmpDir, "nope.jsonl"));
 		expect(records).toEqual([]);
+	});
+
+	it("readJsonl skips malformed lines", async () => {
+		const file = path.join(tmpDir, "bad.jsonl");
+		await fs.promises.writeFile(file, '{"a":1}\nNOT_JSON\n{"b":2}\n', "utf-8");
+		const records = await readJsonl(file);
+		expect(records).toEqual([{ a: 1 }, { b: 2 }]);
+	});
+
+	it("streamJsonl skips malformed lines", async () => {
+		const file = path.join(tmpDir, "bad-stream.jsonl");
+		await fs.promises.writeFile(file, '{"x":1}\n{broken\n{"y":2}\n', "utf-8");
+		const results: unknown[] = [];
+		await streamJsonl(file, (record) => {
+			results.push(record);
+		});
+		expect(results).toEqual([{ x: 1 }, { y: 2 }]);
 	});
 
 	it("tailJsonl returns last N records", async () => {

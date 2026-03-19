@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import type { Deps, Logger, Session } from "@ultracoder/core";
 
 export interface RecoveryAction {
@@ -26,7 +27,7 @@ export async function runRecovery(
 	const actions: RecoveryAction[] = [];
 
 	for (const session of sessions) {
-		const action = diagnoseSession(session, logger);
+		const action = await diagnoseSession(session, logger);
 		if (action) {
 			actions.push(action);
 			if (!dryRun) {
@@ -55,7 +56,7 @@ export async function runRecovery(
 	};
 }
 
-function diagnoseSession(session: Session, logger: Logger): RecoveryAction | null {
+async function diagnoseSession(session: Session, logger: Logger): Promise<RecoveryAction | null> {
 	// Check for orphaned running sessions (no PID or runtime)
 	if (session.status === "working" && !session.pid && !session.runtimeId) {
 		return {
@@ -63,6 +64,40 @@ function diagnoseSession(session: Session, logger: Logger): RecoveryAction | nul
 			action: "archive",
 			reason: "Orphaned session: working but no PID or runtime",
 		};
+	}
+
+	// Check runtime liveness: if session has a PID, verify the process is alive
+	if (session.status === "working" && session.pid) {
+		const alive = isProcessAlive(session.pid);
+		if (!alive) {
+			logger.warn(`Runtime dead for session '${session.id}' (PID ${session.pid})`, {
+				sessionId: session.id,
+				pid: session.pid,
+			});
+			return {
+				sessionId: session.id,
+				action: "archive",
+				reason: `Orphaned session: PID ${session.pid} is no longer alive`,
+			};
+		}
+	}
+
+	// Check runtime liveness via runtimeId (if no PID but has runtimeId, we can't verify — skip)
+
+	// Check workspace liveness: if session has a workspacePath, verify it exists
+	if ((session.status === "working" || session.status === "spawning") && session.workspacePath) {
+		const exists = await isDirectoryAccessible(session.workspacePath);
+		if (!exists) {
+			logger.warn(`Workspace missing for session '${session.id}' (${session.workspacePath})`, {
+				sessionId: session.id,
+				workspacePath: session.workspacePath,
+			});
+			return {
+				sessionId: session.id,
+				action: "archive",
+				reason: `Workspace missing: ${session.workspacePath} is not accessible`,
+			};
+		}
 	}
 
 	// Check for very old spawning sessions
@@ -96,6 +131,26 @@ function diagnoseSession(session: Session, logger: Logger): RecoveryAction | nul
 	}
 
 	return null;
+}
+
+/** Check if a process is alive by sending signal 0. */
+function isProcessAlive(pid: number): boolean {
+	try {
+		process.kill(pid, 0);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/** Check if a directory is accessible on disk. */
+async function isDirectoryAccessible(dirPath: string): Promise<boolean> {
+	try {
+		await fs.promises.access(dirPath);
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 async function executeRecoveryAction(

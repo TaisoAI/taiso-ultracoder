@@ -98,6 +98,7 @@ export const ProjectConfigSchema = z.object({
 	session: SessionConfigSchema.default({}),
 	plugins: z.record(PluginRefSchema).default({}),
 	pricing: PricingSchema,
+	storageBackend: z.enum(["file", "sqlite"]).default("file"),
 	workspace: z
 		.object({
 			strategy: z.enum(["worktree", "clone"]).default("worktree"),

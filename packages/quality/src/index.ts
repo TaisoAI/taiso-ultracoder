@@ -5,6 +5,7 @@ export {
 	checkVeracityRegex,
 	checkVeracityLLM,
 	checkVeracityFilesystem,
+	parseLLMVeracityOutput,
 } from "./veracity.js";
 export type { VeracityConfig, VeracityFinding } from "./veracity.js";
 

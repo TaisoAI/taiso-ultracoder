@@ -2,8 +2,14 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { checkVeracityFilesystem, checkVeracityRegex } from "./veracity.js";
+import type { Logger } from "@ultracoder/core";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	checkVeracityFilesystem,
+	checkVeracityLLM,
+	checkVeracityRegex,
+	parseLLMVeracityOutput,
+} from "./veracity.js";
 
 describe("checkVeracityRegex", () => {
 	it("detects unverified package imports", () => {
@@ -269,5 +275,112 @@ describe("checkVeracityFilesystem", () => {
 		} finally {
 			fs.rmSync(nonGitDir, { recursive: true, force: true });
 		}
+	});
+});
+
+// ─── parseLLMVeracityOutput ─────────────────────────────────────────
+
+describe("parseLLMVeracityOutput", () => {
+	it("parses valid findings", () => {
+		const output = [
+			'FINDING:warn:5:Claims "all tests pass" but no test output shown',
+			"FINDING:error:12:References API endpoint that doesn't exist in the codebase",
+		].join("\n");
+
+		const findings = parseLLMVeracityOutput(output);
+		expect(findings).toHaveLength(2);
+
+		expect(findings[0]).toEqual({
+			tier: "llm",
+			message: 'Claims "all tests pass" but no test output shown',
+			line: 5,
+			severity: "warn",
+		});
+
+		expect(findings[1]).toEqual({
+			tier: "llm",
+			message: "References API endpoint that doesn't exist in the codebase",
+			line: 12,
+			severity: "error",
+		});
+	});
+
+	it("returns empty array for NO_ISSUES", () => {
+		const findings = parseLLMVeracityOutput("NO_ISSUES");
+		expect(findings).toHaveLength(0);
+	});
+
+	it("returns empty array for empty output", () => {
+		const findings = parseLLMVeracityOutput("");
+		expect(findings).toHaveLength(0);
+	});
+
+	it("returns empty array for malformed output", () => {
+		const output = [
+			"This is not a valid format",
+			"FINDING:badlevel:5:some issue",
+			"FINDING:warn:notanumber:some issue",
+			"FINDING:warn:5:",
+			"FINDING:warn",
+			"random text",
+		].join("\n");
+
+		const findings = parseLLMVeracityOutput(output);
+		expect(findings).toHaveLength(0);
+	});
+
+	it("handles mixed severity findings", () => {
+		const output = [
+			"FINDING:info:1:Minor observation about style",
+			"FINDING:warn:10:Unsubstantiated performance claim",
+			"FINDING:error:20:Fabricated API reference",
+		].join("\n");
+
+		const findings = parseLLMVeracityOutput(output);
+		expect(findings).toHaveLength(3);
+		expect(findings[0].severity).toBe("info");
+		expect(findings[1].severity).toBe("warn");
+		expect(findings[2].severity).toBe("error");
+		expect(findings[0].line).toBe(1);
+		expect(findings[1].line).toBe(10);
+		expect(findings[2].line).toBe(20);
+	});
+
+	it("skips malformed lines and keeps valid ones", () => {
+		const output = [
+			"FINDING:warn:5:Valid finding",
+			"This line is not a finding",
+			"FINDING:error:10:Another valid finding",
+		].join("\n");
+
+		const findings = parseLLMVeracityOutput(output);
+		expect(findings).toHaveLength(2);
+		expect(findings[0].message).toBe("Valid finding");
+		expect(findings[1].message).toBe("Another valid finding");
+	});
+});
+
+// ─── checkVeracityLLM ───────────────────────────────────────────────
+
+function makeLogger(): Logger {
+	const noop = () => {};
+	return {
+		debug: noop,
+		info: noop,
+		warn: vi.fn(),
+		error: noop,
+		child: () => makeLogger(),
+	};
+}
+
+describe("checkVeracityLLM", () => {
+	it("returns empty array on agent error", async () => {
+		const logger = makeLogger();
+		const findings = await checkVeracityLLM("some content", logger, {
+			agentPath: "/nonexistent/binary",
+			timeoutMs: 5000,
+		});
+		expect(findings).toHaveLength(0);
+		expect(logger.warn).toHaveBeenCalled();
 	});
 });

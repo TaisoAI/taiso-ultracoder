@@ -1,9 +1,9 @@
 import {
 	DefaultPluginRegistry,
 	type Deps,
-	FileSessionManager,
 	createLogger,
 	createPathResolver,
+	createSessionManager,
 	loadConfig,
 	loadPlugin,
 } from "@ultracoder/core";
@@ -29,7 +29,11 @@ export async function buildContext(opts?: {
 	});
 
 	const plugins = new DefaultPluginRegistry(logger);
-	const sessions = new FileSessionManager(paths, logger);
+	const sessions = createSessionManager({
+		backend: config.storageBackend,
+		paths,
+		logger,
+	});
 
 	// Load configured plugins
 	for (const [, ref] of Object.entries(config.plugins)) {

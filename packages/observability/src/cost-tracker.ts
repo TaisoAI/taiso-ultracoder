@@ -89,14 +89,37 @@ export async function summarizeCosts(filePath: string): Promise<CostSummary> {
 
 /**
  * Check if a session is within budget.
+ * When costLogPath is provided and maxPerDay > 0, also enforces per-day budget
+ * by reading today's entries from the cost log.
  */
-export function isWithinBudget(
+export async function isWithinBudget(
 	sessionCost: number,
 	budget: CostBudget,
-): { allowed: boolean; remaining: number } {
-	const remaining = budget.maxPerSession - sessionCost;
-	return {
-		allowed: remaining > 0,
-		remaining: Math.max(0, remaining),
-	};
+	costLogPath?: string,
+): Promise<{ allowed: boolean; remaining: number; dailyCost?: number }> {
+	// Check per-session
+	const sessionRemaining = budget.maxPerSession - sessionCost;
+	if (sessionRemaining <= 0) {
+		return { allowed: false, remaining: 0 };
+	}
+
+	// Check per-day (if costLogPath provided)
+	if (costLogPath && budget.maxPerDay > 0) {
+		const entries = await readJsonl<CostEntry>(costLogPath);
+		const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+		const dailyCost = entries
+			.filter((e) => e.timestamp.startsWith(today))
+			.reduce((sum, e) => sum + e.cost, 0);
+
+		if (dailyCost >= budget.maxPerDay) {
+			return { allowed: false, remaining: 0, dailyCost };
+		}
+		return {
+			allowed: true,
+			remaining: Math.min(sessionRemaining, budget.maxPerDay - dailyCost),
+			dailyCost,
+		};
+	}
+
+	return { allowed: true, remaining: sessionRemaining };
 }
