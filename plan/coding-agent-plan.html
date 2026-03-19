@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coding Agent Synthesis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  :root {
+    --white: #fff;
+    --black: #000;
+    --gray-50: #fafafa;
+    --gray-100: #f5f5f7;
+    --gray-200: #e8e8ed;
+    --gray-400: #86868b;
+    --gray-500: #6e6e73;
+    --gray-700: #424245;
+    --gray-800: #2d2d2d;
+    --gray-900: #1d1d1f;
+    --blue: #2997ff;
+    --green: #30d158;
+    --purple: #bf5af2;
+    --orange: #ff9f0a;
+    --red: #ff453a;
+    --pink: #ff375f;
+    --teal: #64d2ff;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-snap-type: y proximity; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--gray-900);
+    background: var(--black);
+  }
+
+  /* ─── Slide System ─── */
+  .slide {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 80px 60px;
+    scroll-snap-align: start;
+    position: relative;
+    overflow: hidden;
+  }
+  .slide.dark { background: var(--black); color: var(--white); }
+  .slide.light { background: var(--white); color: var(--gray-900); }
+  .slide.gray { background: var(--gray-100); color: var(--gray-900); }
+
+  .slide-inner {
+    max-width: 1100px;
+    width: 100%;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ─── Typography ─── */
+  .mega {
+    font-size: clamp(48px, 7vw, 96px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+  }
+  .headline {
+    font-size: clamp(36px, 5vw, 72px);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.05;
+  }
+  .subheadline {
+    font-size: clamp(24px, 3vw, 40px);
+    font-weight: 400;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+  }
+  .body-large {
+    font-size: clamp(18px, 2vw, 24px);
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+  }
+  .body {
+    font-size: 17px;
+    line-height: 1.5;
+  }
+  .caption {
+    font-size: 14px;
+    letter-spacing: 0.01em;
+    line-height: 1.4;
+  }
+  .eyebrow {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+  }
+
+  .text-muted { opacity: 0.5; }
+  .text-secondary { opacity: 0.7; }
+  .text-blue { color: var(--blue); }
+  .text-green { color: var(--green); }
+  .text-purple { color: var(--purple); }
+  .text-orange { color: var(--orange); }
+  .text-red { color: var(--red); }
+  .text-pink { color: var(--pink); }
+  .text-teal { color: var(--teal); }
+  .text-gradient {
+    background: linear-gradient(90deg, var(--blue), var(--purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .text-center { text-align: center; }
+
+  .mt-8 { margin-top: 8px; }
+  .mt-16 { margin-top: 16px; }
+  .mt-24 { margin-top: 24px; }
+  .mt-32 { margin-top: 32px; }
+  .mt-48 { margin-top: 48px; }
+  .mt-64 { margin-top: 64px; }
+  .mb-16 { margin-bottom: 16px; }
+  .mb-24 { margin-bottom: 24px; }
+  .mb-48 { margin-bottom: 48px; }
+
+  /* ─── Stat Row ─── */
+  .stat-row {
+    display: flex;
+    gap: 48px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat .num {
+    font-size: clamp(48px, 6vw, 80px);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1;
+  }
+  .stat .label {
+    font-size: 15px;
+    opacity: 0.5;
+    margin-top: 8px;
+  }
+
+  /* ─── Project Cards (horizontal) ─── */
+  .project-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    width: 100%;
+  }
+  @media (max-width: 900px) {
+    .project-strip { grid-template-columns: repeat(2, 1fr); }
+  }
+  .pcard {
+    border-radius: 20px;
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: transform 0.3s;
+  }
+  .pcard:hover { transform: scale(1.02); }
+  .pcard h3 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .pcard .bet {
+    font-size: 15px;
+    font-weight: 600;
+  }
+  .pcard .desc {
+    font-size: 14px;
+    opacity: 0.7;
+    line-height: 1.4;
+    flex: 1;
+  }
+  .pcard .repo {
+    font-size: 12px;
+    opacity: 0.4;
+    word-break: break-all;
+  }
+  .pcard.c-blue { background: #0a1628; border: 1px solid #1a3a5c; }
+  .pcard.c-purple { background: #1a0a28; border: 1px solid #3a1a5c; }
+  .pcard.c-green { background: #0a1a0e; border: 1px solid #1a3a1e; }
+  .pcard.c-orange { background: #1a140a; border: 1px solid #3a2a1a; }
+
+  /* ─── Contribution blocks ─── */
+  .contrib-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 20px 0;
+  }
+  .contrib-row:last-child { border-bottom: none; }
+  .contrib-label {
+    font-size: 15px;
+    font-weight: 600;
+    padding-top: 2px;
+  }
+  .contrib-detail {
+    font-size: 15px;
+    opacity: 0.6;
+    line-height: 1.5;
+  }
+
+  /* ─── Architecture Diagram (visual) ─── */
+  .arch-visual {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+  }
+  .arch-layer {
+    border-radius: 16px;
+    padding: 24px 28px;
+    position: relative;
+  }
+  .arch-layer .layer-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .arch-layer .layer-label .from-tag {
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.5;
+    font-size: 11px;
+  }
+  .arch-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .arch-node {
+    padding: 10px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+    flex: 1;
+    min-width: 140px;
+    text-align: center;
+  }
+  .arch-node .node-sub {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.6;
+    margin-top: 2px;
+  }
+  .arch-connector {
+    display: flex;
+    justify-content: center;
+    padding: 4px 0;
+    color: rgba(255,255,255,0.15);
+    font-size: 18px;
+    letter-spacing: 12px;
+  }
+  /* Layer themes */
+  .arch-layer.l-cli      { background: rgba(255,255,255,0.06); }
+  .arch-layer.l-orch     { background: rgba(41,151,255,0.08); border: 1px solid rgba(41,151,255,0.15); }
+  .arch-layer.l-super    { background: rgba(191,90,242,0.06); border: 1px solid rgba(191,90,242,0.12); }
+  .arch-layer.l-sessions { background: rgba(255,159,10,0.06); border: 1px solid rgba(255,159,10,0.12); }
+  .arch-layer.l-merge    { background: rgba(48,209,88,0.06); border: 1px solid rgba(48,209,88,0.12); }
+  /* Node themes */
+  .arch-node.n-blue   { background: rgba(41,151,255,0.12); color: var(--blue); border: 1px solid rgba(41,151,255,0.2); }
+  .arch-node.n-green  { background: rgba(48,209,88,0.12); color: var(--green); border: 1px solid rgba(48,209,88,0.2); }
+  .arch-node.n-purple { background: rgba(191,90,242,0.12); color: var(--purple); border: 1px solid rgba(191,90,242,0.2); }
+  .arch-node.n-orange { background: rgba(255,159,10,0.12); color: var(--orange); border: 1px solid rgba(255,159,10,0.2); }
+  .arch-node.n-teal   { background: rgba(100,210,255,0.10); color: var(--teal); border: 1px solid rgba(100,210,255,0.18); }
+  .arch-node.n-muted  { background: rgba(255,255,255,0.04); color: rgba(255,255,255,0.6); border: 1px solid rgba(255,255,255,0.08); }
+  .arch-node.n-pink   { background: rgba(255,55,95,0.10); color: var(--pink); border: 1px solid rgba(255,55,95,0.18); }
+  /* Plugin strip */
+  .plugin-strip {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
+  .plugin-pill {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    background: rgba(100,210,255,0.08);
+    color: var(--teal);
+    border: 1px solid rgba(100,210,255,0.15);
+  }
+  /* Quality pipeline numbered steps */
+  .quality-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-top: 8px;
+  }
+  @media (max-width: 700px) { .quality-steps { grid-template-columns: repeat(3, 1fr); } }
+  .q-step {
+    padding: 8px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: center;
+    background: rgba(191,90,242,0.1);
+    color: rgba(255,255,255,0.7);
+    border: 1px solid rgba(191,90,242,0.15);
+  }
+  .q-step .q-num {
+    display: block;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--purple);
+    margin-bottom: 2px;
+  }
+  /* Session boxes */
+  .session-strip {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .session-box {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: rgba(255,159,10,0.06);
+    border: 1px solid rgba(255,159,10,0.12);
+    text-align: center;
+    font-size: 13px;
+    color: rgba(255,255,255,0.7);
+  }
+  .session-box .session-name {
+    font-weight: 700;
+    color: var(--orange);
+    font-size: 14px;
+    margin-bottom: 4px;
+  }
+  .session-box .session-detail {
+    font-size: 11px;
+    opacity: 0.5;
+    line-height: 1.3;
+  }
+
+  /* ─── Principle pills ─── */
+  .principle-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .principle {
+    padding: 24px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .principle .p-num {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--blue);
+    margin-bottom: 8px;
+  }
+  .principle h4 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .principle p {
+    font-size: 14px;
+    opacity: 0.5;
+    line-height: 1.4;
+  }
+  .principle .src {
+    font-size: 12px;
+    opacity: 0.3;
+    margin-top: 10px;
+  }
+
+  /* ─── Phase timeline ─── */
+  .phase-timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    width: 100%;
+  }
+  .phase-card {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .phase-badge {
+    width: 64px;
+    height: 64px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--white);
+    flex-shrink: 0;
+  }
+  .phase-content h3 {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 4px;
+  }
+  .phase-content .phase-sub {
+    font-size: 15px;
+    opacity: 0.5;
+    margin-bottom: 16px;
+  }
+  .phase-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .phase-chip {
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .phase-chip .chip-src {
+    opacity: 0.35;
+    font-size: 12px;
+    font-weight: 400;
+  }
+  .phase-deliverable {
+    margin-top: 16px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    background: rgba(48, 209, 88, 0.08);
+    border: 1px solid rgba(48, 209, 88, 0.2);
+    font-size: 14px;
+    color: var(--green);
+  }
+
+  /* ─── Decision cards ─── */
+  .decision-stack {
+    display: grid;
+    gap: 12px;
+  }
+  .dec-card {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 16px;
+    padding: 24px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    align-items: start;
+  }
+  .dec-num {
+    font-size: 24px;
+    font-weight: 800;
+    opacity: 0.2;
+    text-align: center;
+  }
+  .dec-card h4 { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+  .dec-card p { font-size: 14px; opacity: 0.5; line-height: 1.5; }
+
+  /* ─── Risk rows ─── */
+  .risk-list { display: grid; gap: 1px; }
+  .risk-row {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 32px;
+    padding: 18px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .risk-row:last-child { border-bottom: none; }
+  .risk-row .risk-name { font-size: 15px; font-weight: 600; color: var(--red); }
+  .risk-row .risk-fix { font-size: 14px; opacity: 0.5; line-height: 1.5; }
+
+  /* ─── Exclusion list ─── */
+  .exclusion { margin-bottom: 12px; font-size: 17px; opacity: 0.6; }
+  .exclusion .x { color: var(--red); font-weight: 700; margin-right: 8px; }
+
+  /* ─── Success grid ─── */
+  .success-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  .success-card {
+    padding: 24px;
+    border-radius: 16px;
+    border: 1px solid var(--gray-200);
+    background: var(--white);
+  }
+  .success-card .s-phase {
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .success-card p {
+    font-size: 14px;
+    color: var(--gray-500);
+    line-height: 1.5;
+  }
+
+  /* ─── Footer ─── */
+  .footer {
+    text-align: center;
+    padding: 48px;
+    font-size: 13px;
+    opacity: 0.3;
+    color: var(--white);
+    background: var(--black);
+  }
+  .footer a { color: var(--blue); text-decoration: none; }
+
+  /* ─── Glow accents ─── */
+  .glow {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: 0.15;
+    z-index: 0;
+    pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ SLIDE 1: TITLE ═══════════════ -->
+<div class="slide dark">
+  <div class="glow" style="width:600px;height:600px;background:var(--blue);top:-200px;right:-100px;"></div>
+  <div class="glow" style="width:500px;height:500px;background:var(--purple);bottom:-200px;left:-100px;"></div>
+  <div class="slide-inner text-center">
+    <div class="eyebrow text-blue">Architecture Plan</div>
+    <h1 class="mega">The best of<br><span class="text-gradient">four codebases.</span></h1>
+    <p class="subheadline text-secondary mt-24" style="max-width:700px;margin-left:auto;margin-right:auto;">Four open-source projects independently solved different parts of the AI coding agent problem. We studied all of them. Now we're combining the best of each into one system.</p>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 2: THE PROBLEM ═══════════════ -->
+<div class="slide dark">
+  <div class="slide-inner text-center">
+    <p class="subheadline text-secondary mb-48">AI coding agents can write code.<br>But can you actually trust and ship what they produce?</p>
+    <h2 class="headline">Four hard problems.</h2>
+    <div class="stat-row mt-64">
+      <div class="stat"><div class="num text-blue" style="font-size:clamp(36px,5vw,64px);">Trust</div><div class="label">Agents claim they did the work.<br>Did they? Hallucinations are invisible.</div></div>
+      <div class="stat"><div class="num text-purple" style="font-size:clamp(36px,5vw,64px);">Scale</div><div class="label">Parallel agents, parallel branches.<br>Merging is where it all breaks.</div></div>
+      <div class="stat"><div class="num text-green" style="font-size:clamp(36px,5vw,64px);">DevOps</div><div class="label">CI fails. Reviewers comment.<br>Who tells the agent? You. Every time.</div></div>
+      <div class="stat"><div class="num text-orange" style="font-size:clamp(36px,5vw,64px);">Tenacity</div><div class="label">An agent that gives up isn't useful.<br>Real work means persistent PRs, not one-shots.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 3: DISCOVERY ═══════════════ -->
+<div class="slide dark">
+  <div class="slide-inner text-center">
+    <p class="body-large text-secondary mb-24">We found four projects that each solved one of these problems.</p>
+    <h2 class="headline">Each made a<br>different bet.</h2>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 4: THE FOUR PROJECTS ═══════════════ -->
+<div class="slide dark" style="padding-top:60px;padding-bottom:60px;">
+  <div class="slide-inner">
+    <div class="project-strip">
+
+      <div class="pcard c-blue">
+        <div class="bet text-blue">Correctness</div>
+        <h3>tcagent</h3>
+        <div class="desc">Wraps any coding agent in a quality-enforcement layer. 7-step checklist. Two-tier hallucination detection. Tool approval gates. Reviewer agent. Full SQLite audit trail. 726 tests.</div>
+        <div class="repo">github.com/TaisoAI/tcagent</div>
+      </div>
+
+      <div class="pcard c-purple">
+        <div class="bet text-purple">Speed</div>
+        <h3>Longshot</h3>
+        <div class="desc">Decomposes a prompt into hundreds of tasks across 50 parallel sandboxes. Self-healing merge pipeline. Scope tracking. Reconciler with adaptive sweeps. Stateless — Git is the only state.</div>
+        <div class="repo">github.com/Blastgits/longshot</div>
+      </div>
+
+      <div class="pcard c-green">
+        <div class="bet text-green">Coordination</div>
+        <h3>Agent Orchestrator</h3>
+        <div class="desc">Fleet manager with 7-slot plugin architecture. Background lifecycle worker reacts to CI failures, review comments, merge conflicts. Notification routing. Orchestrator is itself an AI agent.</div>
+        <div class="repo">github.com/ComposioHQ/agent-orchestrator</div>
+      </div>
+
+      <div class="pcard c-orange">
+        <div class="bet text-orange">Persistence</div>
+        <h3>pi-autoresearch</h3>
+        <div class="desc">Autonomous optimization loop in 1,630 lines. No loop in code — emergent from prompt engineering. Append-only JSONL survives any crash. Auto-resume across context boundaries.</div>
+        <div class="repo">github.com/davebcn87/pi-autoresearch</div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 5: THE INSIGHT ═══════════════ -->
+<div class="slide dark">
+  <div class="glow" style="width:800px;height:800px;background:var(--green);top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+  <div class="slide-inner text-center">
+    <p class="body-large text-secondary mb-24">Here's the thing.</p>
+    <h2 class="mega">They're not<br>competing.</h2>
+    <p class="subheadline text-secondary mt-32" style="max-width:640px;margin:0 auto;">They solve different layers of the same problem. Correctness. Speed. Coordination. Persistence. You need all four.</p>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 6: WHAT EACH UNIQUELY CONTRIBUTES ═══════════════ -->
+<div class="slide dark" style="padding-top:60px;padding-bottom:60px;min-height:auto;">
+  <div class="slide-inner">
+    <div class="eyebrow text-blue text-center">Unique Contributions</div>
+    <h2 class="headline text-center mb-48">Patterns worth extracting.</h2>
+
+    <!-- tcagent -->
+    <div class="eyebrow text-blue mt-48" style="margin-bottom:8px;">From tcagent</div>
+    <div class="contrib-row"><div class="contrib-label">Veracity checking</div><div class="contrib-detail">Tier 1: regex catches hallucinated execution (zero cost). Tier 2: LLM grounding check identifies unsubstantiated claims.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Tool policy</div><div class="contrib-detail">4 tiers — auto_approve, evaluate (LLM decides), require_human (blocks until /approve), blocked (terminates). Glob matching.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Reviewer agent</div><div class="contrib-detail">Second Claude instance, read-only tools. Verdicts: ON_TRACK, ISSUES_FOUND, NEEDS_USER. Per-step, not post-hoc.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Audit trail</div><div class="contrib-detail">SQLite with 7 tables. Every conversation turn, tool decision, and veracity check is recorded and queryable.</div></div>
+
+    <!-- Longshot -->
+    <div class="eyebrow text-purple mt-48" style="margin-bottom:8px;">From Longshot</div>
+    <div class="contrib-row"><div class="contrib-label">Task decomposition</div><div class="contrib-detail">Root planner → subplanner (depth 3). Delta-optimized replanning saves ~40K chars per cycle. Persistent LLM conversation.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Merge pipeline</div><div class="contrib-detail">Three layers: merge queue (rebase+retry), reconciler (adaptive tsc+build+test sweeps), finalization (3 corrective cycles).</div></div>
+    <div class="contrib-row"><div class="contrib-label">LLM routing</div><div class="contrib-detail">Multi-endpoint weighted round-robin. EMA latency tracking (α=0.3). Circuit breaker at 3 failures. Recovery probe at 30s.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Dependency injection</div><div class="contrib-detail">Every major class accepts a *Deps interface. Tests inject fakes for spawn, sleep, time, filesystem. Deterministic and fast.</div></div>
+
+    <!-- Agent Orchestrator -->
+    <div class="eyebrow text-green mt-48" style="margin-bottom:8px;">From Agent Orchestrator</div>
+    <div class="contrib-row"><div class="contrib-label">Plugin architecture</div><div class="contrib-detail">7 slots: Runtime, Agent, Workspace, Tracker, SCM, Notifier, Terminal. Dynamic import. Graceful degradation.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Reaction engine</div><div class="contrib-detail">CI failed → send to agent (2 retries, escalate). Changes requested → forward (30 min escalation). Configurable per project.</div></div>
+    <div class="contrib-row"><div class="contrib-label">SCM integration</div><div class="contrib-detail">CI checks, review decisions, merge readiness, bot detection, webhook verification. Full DevOps lifecycle awareness.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Orchestrator-as-agent</div><div class="contrib-detail">Supervisor is itself a Claude Code session with CLI access. Recursive agent-manages-agents with read-only constraints.</div></div>
+
+    <!-- pi-autoresearch -->
+    <div class="eyebrow text-orange mt-48" style="margin-bottom:8px;">From pi-autoresearch</div>
+    <div class="contrib-row"><div class="contrib-label">Emergent loop</div><div class="contrib-detail">No loop in code. Emergent from: skill rules ("LOOP FOREVER"), system prompt injection, auto-resume on context exhaustion.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Append-only JSONL</div><div class="contrib-detail">State never mutated. Config headers create segments. reconstructState() replays log on startup. Survives any crash.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Auto-resume</div><div class="contrib-detail">Context exhaustion → 5-min cooldown → sendUserMessage(). Turn cap: 20. Fresh agent reads persistent state and continues.</div></div>
+    <div class="contrib-row"><div class="contrib-label">Metric-gated commits</div><div class="contrib-detail">Only commit if metric improved AND checks pass. Extension handles commits; agent handles reverts. Prevents bad code from landing.</div></div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 7: SEVEN PRINCIPLES ═══════════════ -->
+<div class="slide dark">
+  <div class="slide-inner">
+    <div class="text-center mb-48">
+      <div class="eyebrow text-blue">Unified Architecture</div>
+      <h2 class="headline">Seven principles.</h2>
+    </div>
+    <div class="principle-grid">
+      <div class="principle"><div class="p-num">01</div><h4>Plugin-first</h4><p>Every external integration is a swappable slot.</p><div class="src">Agent Orchestrator</div></div>
+      <div class="principle"><div class="p-num">02</div><h4>Inline verification</h4><p>Quality checked before commit, not eventually.</p><div class="src">tcagent</div></div>
+      <div class="principle"><div class="p-num">03</div><h4>Parallel when beneficial</h4><p>Decompose large tasks. Serialize merging.</p><div class="src">Longshot</div></div>
+      <div class="principle"><div class="p-num">04</div><h4>Emergent over imperative</h4><p>LLM drives behavior via prompts, not state machines.</p><div class="src">pi-autoresearch</div></div>
+      <div class="principle"><div class="p-num">05</div><h4>Append-only persistence</h4><p>Never mutate. Append events. Reconstruct on startup.</p><div class="src">pi-autoresearch + tcagent</div></div>
+      <div class="principle"><div class="p-num">06</div><h4>React to DevOps lifecycle</h4><p>Auto-handle CI, reviews, merges. Escalate only when needed.</p><div class="src">Agent Orchestrator</div></div>
+      <div class="principle"><div class="p-num">07</div><h4>Dependency injection</h4><p>Every external dep is injectable. Deterministic tests.</p><div class="src">Longshot</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 8: ARCHITECTURE DIAGRAM ═══════════════ -->
+<div class="slide dark" style="padding-top:60px;padding-bottom:60px;">
+  <div class="slide-inner">
+    <div class="text-center mb-48">
+      <h2 class="headline">The system.</h2>
+    </div>
+
+    <div class="arch-visual">
+
+      <!-- CLI Layer -->
+      <div class="arch-layer l-cli">
+        <div class="layer-label" style="color:rgba(255,255,255,0.5);">Interface</div>
+        <div class="arch-row">
+          <div class="arch-node n-muted">CLI<span class="node-sub">start / spawn / send / status / kill</span></div>
+          <div class="arch-node n-muted">Web Dashboard<span class="node-sub">Next.js session monitor</span></div>
+          <div class="arch-node n-muted">Mobile<span class="node-sub">React Native + push notifications</span></div>
+        </div>
+      </div>
+
+      <div class="arch-connector">|||</div>
+
+      <!-- Orchestrator Layer -->
+      <div class="arch-layer l-orch">
+        <div class="layer-label" style="color:var(--blue);">Orchestrator Layer <span class="from-tag">from Agent Orchestrator + Longshot</span></div>
+        <div class="arch-row">
+          <div class="arch-node n-blue">Session Manager<span class="node-sub">spawn / kill / send / restore</span></div>
+          <div class="arch-node n-blue">Lifecycle Manager<span class="node-sub">poll every 30s + react to state changes</span></div>
+          <div class="arch-node n-purple">Task Decomposer<span class="node-sub">recursive LLM decomposition + scope tracking</span></div>
+        </div>
+        <div class="plugin-strip">
+          <div class="plugin-pill">Runtime</div>
+          <div class="plugin-pill">Agent</div>
+          <div class="plugin-pill">Workspace</div>
+          <div class="plugin-pill">Tracker</div>
+          <div class="plugin-pill">SCM</div>
+          <div class="plugin-pill">Notifier</div>
+          <div class="plugin-pill">Terminal</div>
+          <span style="font-size:11px;opacity:0.3;align-self:center;margin-left:4px;">7-slot plugin registry</span>
+        </div>
+      </div>
+
+      <div class="arch-connector">|||</div>
+
+      <!-- Per-Session Supervisor -->
+      <div class="arch-layer l-super">
+        <div class="layer-label" style="color:var(--purple);">Per-Session Supervisor <span class="from-tag">from tcagent + pi-autoresearch</span></div>
+        <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);margin-bottom:8px;">QUALITY PIPELINE &mdash; runs inline on every agent response</div>
+        <div class="quality-steps">
+          <div class="q-step"><span class="q-num">1</span>Veracity<br>regex</div>
+          <div class="q-step"><span class="q-num">2</span>Veracity<br>LLM</div>
+          <div class="q-step"><span class="q-num">3</span>Tool<br>policy</div>
+          <div class="q-step"><span class="q-num">4</span>Quality<br>gates</div>
+          <div class="q-step"><span class="q-num">5</span>Reviewer<br>agent</div>
+        </div>
+        <div class="arch-row" style="margin-top:12px;">
+          <div class="arch-node n-purple">Prompt Builder<span class="node-sub">4 layers: base + config + rules + decomposition</span></div>
+          <div class="arch-node n-orange">Auto-Resume<span class="node-sub">context exhaustion &rarr; cooldown &rarr; resume with persistent state</span></div>
+        </div>
+      </div>
+
+      <div class="arch-connector">|||</div>
+
+      <!-- Isolated Sessions -->
+      <div class="arch-layer l-sessions">
+        <div class="layer-label" style="color:var(--orange);">Isolated Agent Sessions <span class="from-tag">one issue = one worktree + one agent + one branch + one PR</span></div>
+        <div class="session-strip">
+          <div class="session-box">
+            <div class="session-name">Session 1</div>
+            <div class="session-detail">Git Worktree &middot; tmux<br>AI Agent &middot; JSONL Log</div>
+          </div>
+          <div class="session-box">
+            <div class="session-name">Session 2</div>
+            <div class="session-detail">Git Worktree &middot; tmux<br>AI Agent &middot; JSONL Log</div>
+          </div>
+          <div class="session-box" style="opacity:0.5;">
+            <div class="session-name">Session N</div>
+            <div class="session-detail">Git Worktree &middot; tmux<br>AI Agent &middot; JSONL Log</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="arch-connector">|||</div>
+
+      <!-- Merge & Reconciliation -->
+      <div class="arch-layer l-merge">
+        <div class="layer-label" style="color:var(--green);">Merge &amp; Reconciliation <span class="from-tag">from Longshot</span></div>
+        <div class="arch-row">
+          <div class="arch-node n-green">Merge Queue<span class="node-sub">serial priority merge &middot; rebase + retry &middot; conflict fix</span></div>
+          <div class="arch-node n-green">Reconciler<span class="node-sub">adaptive tsc + build + test sweeps &middot; auto-fix tasks</span></div>
+          <div class="arch-node n-green">Finalization<span class="node-sub">3 corrective cycles after planning ends</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 9: THE PLAN ═══════════════ -->
+<div class="slide dark" style="padding-top:60px;padding-bottom:60px;min-height:auto;">
+  <div class="slide-inner">
+    <div class="text-center mb-48">
+      <div class="eyebrow text-blue">Implementation</div>
+      <h2 class="headline">Five phases.<br>Each ships independently.</h2>
+    </div>
+
+    <div class="phase-timeline">
+
+      <div class="phase-card">
+        <div><div class="phase-badge" style="background:var(--blue);">1</div></div>
+        <div class="phase-content">
+          <h3>Foundation</h3>
+          <div class="phase-sub">Core + Plugin System</div>
+          <div class="phase-items">
+            <div class="phase-chip">Plugin registry <span class="chip-src">ao</span></div>
+            <div class="phase-chip">Session manager <span class="chip-src">ao</span></div>
+            <div class="phase-chip">Zod config <span class="chip-src">ao + Longshot</span></div>
+            <div class="phase-chip">Dependency injection <span class="chip-src">Longshot</span></div>
+            <div class="phase-chip">CLI skeleton <span class="chip-src">ao</span></div>
+          </div>
+          <div class="phase-deliverable">Spawn isolated agent sessions, send messages, view status.</div>
+        </div>
+      </div>
+
+      <div class="phase-card">
+        <div><div class="phase-badge" style="background:var(--green);">2</div></div>
+        <div class="phase-content">
+          <h3>Quality Pipeline</h3>
+          <div class="phase-sub">Per-Session Supervision</div>
+          <div class="phase-items">
+            <div class="phase-chip">Veracity checking <span class="chip-src">tcagent</span></div>
+            <div class="phase-chip">Tool policy <span class="chip-src">tcagent</span></div>
+            <div class="phase-chip">Quality gates <span class="chip-src">tcagent + Longshot</span></div>
+            <div class="phase-chip">Reviewer agent <span class="chip-src">tcagent</span></div>
+            <div class="phase-chip">Composable pipeline</div>
+          </div>
+          <div class="phase-deliverable">Hallucinations caught. Dangerous tools gated. Quality verified inline.</div>
+        </div>
+      </div>
+
+      <div class="phase-card">
+        <div><div class="phase-badge" style="background:var(--orange);">3</div></div>
+        <div class="phase-content">
+          <h3>Lifecycle &amp; Reactions</h3>
+          <div class="phase-sub">DevOps Integration</div>
+          <div class="phase-items">
+            <div class="phase-chip">Lifecycle worker <span class="chip-src">ao</span></div>
+            <div class="phase-chip">Reaction engine <span class="chip-src">ao</span></div>
+            <div class="phase-chip">Auto-resume <span class="chip-src">pi-autoresearch</span></div>
+            <div class="phase-chip">Notifications <span class="chip-src">ao</span></div>
+            <div class="phase-chip">Activity detection <span class="chip-src">ao + pi-auto</span></div>
+          </div>
+          <div class="phase-deliverable">CI auto-retries. Reviews auto-forward. Context auto-resumes. Humans notified only when needed.</div>
+        </div>
+      </div>
+
+      <div class="phase-card">
+        <div><div class="phase-badge" style="background:var(--purple);">4</div></div>
+        <div class="phase-content">
+          <h3>Parallel Execution</h3>
+          <div class="phase-sub">Multi-Session Coordination</div>
+          <div class="phase-items">
+            <div class="phase-chip">Task decomposition <span class="chip-src">Longshot</span></div>
+            <div class="phase-chip">Scope tracker <span class="chip-src">Longshot</span></div>
+            <div class="phase-chip">Handoff protocol <span class="chip-src">Longshot</span></div>
+            <div class="phase-chip">Merge queue <span class="chip-src">Longshot</span></div>
+            <div class="phase-chip">Reconciler <span class="chip-src">Longshot</span></div>
+          </div>
+          <div class="phase-deliverable">20-file feature → 4-5 parallel sessions. Verified. Merged. Build passes.</div>
+        </div>
+      </div>
+
+      <div class="phase-card">
+        <div><div class="phase-badge" style="background:var(--pink);">5</div></div>
+        <div class="phase-content">
+          <h3>Observability &amp; Advanced</h3>
+          <div class="phase-sub">Tracing, Metrics, Experiment Mode</div>
+          <div class="phase-items">
+            <div class="phase-chip">Structured tracing <span class="chip-src">Longshot</span></div>
+            <div class="phase-chip">Metrics dashboard <span class="chip-src">ao + Longshot</span></div>
+            <div class="phase-chip">Experiment mode <span class="chip-src">pi-autoresearch</span></div>
+            <div class="phase-chip">Orchestrator agent <span class="chip-src">ao</span></div>
+            <div class="phase-chip">Recovery system <span class="chip-src">ao</span></div>
+          </div>
+          <div class="phase-deliverable">Full cost observability. Metric optimization mode. Autonomous fleet management.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 10: DECISIONS ═══════════════ -->
+<div class="slide dark" style="padding-top:60px;padding-bottom:60px;min-height:auto;">
+  <div class="slide-inner">
+    <div class="text-center mb-48">
+      <div class="eyebrow text-blue">Technical Decisions</div>
+      <h2 class="headline">Five key choices.</h2>
+    </div>
+    <div class="decision-stack">
+      <div class="dec-card"><div class="dec-num">1</div><div><h4>TypeScript over Python</h4><p>3 of 4 projects are TypeScript. Better async model, native ESM plugin imports, shared types across CLI/web/mobile, mature monorepo tooling. Port tcagent's patterns.</p></div></div>
+      <div class="dec-card"><div class="dec-num">2</div><div><h4>Flat files over databases</h4><p>All four projects avoid databases. Session metadata as key=value files. Events as append-only JSONL. Config as Zod-validated YAML. No daemon, no migrations.</p></div></div>
+      <div class="dec-card"><div class="dec-num">3</div><div><h4>Polling first, webhooks later</h4><p>30-second polling is simpler and needs no infrastructure. Add webhooks for latency-sensitive CI/review events after the foundation is solid.</p></div></div>
+      <div class="dec-card"><div class="dec-num">4</div><div><h4>Quality pipeline is optional</h4><p>Each stage independently toggleable. Default: Tier 1 veracity (zero-cost regex) + auto-detected quality gates. Reviewer agent is opt-in.</p></div></div>
+      <div class="dec-card"><div class="dec-num">5</div><div><h4>Parallelism is opt-in</h4><p>Sequential single-session is the default. Decomposition requires --decompose flag. No merge queue overhead for simple tasks.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 11: WHAT NOT TO BUILD ═══════════════ -->
+<div class="slide dark">
+  <div class="slide-inner">
+    <div class="text-center mb-48">
+      <h2 class="headline">What we're <em>not</em> building.</h2>
+      <p class="body-large text-secondary mt-16">Deliberate exclusions. Saying no is as important as saying yes.</p>
+    </div>
+    <div style="max-width:680px;margin:0 auto;">
+      <div class="exclusion"><span class="x">&times;</span> Self-hosted LLM infrastructure. Support any OpenAI-compatible endpoint instead.</div>
+      <div class="exclusion"><span class="x">&times;</span> Custom TUI framework. Use tmux attach and the web dashboard.</div>
+      <div class="exclusion"><span class="x">&times;</span> Agent-internal tool implementation. Manage agents, don't replace them.</div>
+      <div class="exclusion"><span class="x">&times;</span> Complex intent classification. CLI commands are explicit. Keep it simple.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 12: RISKS ═══════════════ -->
+<div class="slide dark" style="padding-top:60px;padding-bottom:60px;min-height:auto;">
+  <div class="slide-inner">
+    <div class="text-center mb-48">
+      <div class="eyebrow text-red">Risk Management</div>
+      <h2 class="headline">What could go wrong.</h2>
+    </div>
+    <div class="risk-list" style="max-width:900px;margin:0 auto;">
+      <div class="risk-row"><div class="risk-name">Complexity explosion</div><div class="risk-fix">Phase-gated delivery. Each phase ships independently. Phase 1–2 before 3–4.</div></div>
+      <div class="risk-row"><div class="risk-name">Quality pipeline too slow</div><div class="risk-fix">Every stage toggleable. Default: lightweight Tier 1 + auto-detect gates.</div></div>
+      <div class="risk-row"><div class="risk-name">Parallel merge conflicts</div><div class="risk-fix">Scope tracker prevents overlap. Merge queue serializes. Reconciler catches the rest.</div></div>
+      <div class="risk-row"><div class="risk-name">Agent CLI updates break plugins</div><div class="risk-fix">Stable plugin interface. Agent-specific parsing encapsulated in the plugin.</div></div>
+      <div class="risk-row"><div class="risk-name">File state corruption</div><div class="risk-fix">Atomic writes (temp+rename). O_EXCL for creation. JSONL append-only. Single writer.</div></div>
+      <div class="risk-row"><div class="risk-name">Auto-resume infinite loops</div><div class="risk-fix">5-min cooldown. Turn cap (20). Must have done work before resuming.</div></div>
+      <div class="risk-row"><div class="risk-name">Orchestrator bad decisions</div><div class="risk-fix">Read-only constraints. All code changes go through workers with quality pipelines.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 13: SUCCESS CRITERIA ═══════════════ -->
+<div class="slide gray" style="padding-top:60px;padding-bottom:60px;">
+  <div class="slide-inner">
+    <div class="text-center mb-48">
+      <div class="eyebrow" style="color:var(--gray-500);">Milestones</div>
+      <h2 class="headline">How we'll know<br>it's working.</h2>
+    </div>
+    <div class="success-grid">
+      <div class="success-card"><div class="s-phase" style="color:var(--accent-blue);">Phase 1</div><p>Spawn, message, and kill isolated agent sessions with any CLI. Clean plugin architecture. Tests pass with injected deps.</p></div>
+      <div class="success-card"><div class="s-phase" style="color:var(--green);">Phase 2</div><p>Hallucinations caught before commit. Dangerous tools gated. Quality gates run automatically.</p></div>
+      <div class="success-card"><div class="s-phase" style="color:var(--orange);">Phase 3</div><p>CI failures auto-retry. Reviews auto-forward. Context auto-resumes. Humans notified only for escalation.</p></div>
+      <div class="success-card"><div class="s-phase" style="color:var(--purple);">Phase 4</div><p>20-file feature → 4-5 parallel sessions. Verified. Merged cleanly. Build passes after integration.</p></div>
+      <div class="success-card"><div class="s-phase" style="color:var(--pink);">Phase 5</div><p>Full cost observability. Experiment mode. Orchestrator agent. Self-healing recovery.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 14: ONE MORE THING ═══════════════ -->
+<div class="slide dark">
+  <div class="glow" style="width:900px;height:900px;background:var(--purple);top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+  <div class="slide-inner text-center">
+    <p class="subheadline text-secondary mb-24">And one more thing.</p>
+    <h2 class="mega">The orchestrator<br>is <span class="text-gradient">itself an agent.</span></h2>
+    <p class="body-large text-secondary mt-32" style="max-width:640px;margin:0 auto;">The supervisory orchestrator is a Claude Code session that uses CLI commands to manage worker agents. It reasons about task assignment, priority, and coordination at a higher level than any individual worker. Agents managing agents.</p>
+  </div>
+</div>
+
+<!-- ═══════════════ SLIDE 15: CLOSING ═══════════════ -->
+<div class="slide dark">
+  <div class="slide-inner text-center">
+    <h2 class="mega">Correct. Fast.<br>Coordinated. Persistent.</h2>
+    <p class="body-large text-secondary mt-32" style="max-width:600px;margin:0 auto;">Four projects. Four bets. One unified system that combines the best of each.</p>
+    <div class="stat-row mt-64">
+      <div class="stat"><div class="num text-blue">5</div><div class="label">Phases</div></div>
+      <div class="stat"><div class="num text-purple">7</div><div class="label">Plugin slots</div></div>
+      <div class="stat"><div class="num text-green">7</div><div class="label">Design principles</div></div>
+      <div class="stat"><div class="num text-orange">4</div><div class="label">Agent backends</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ FOOTER ═══════════════ -->
+<div class="footer">
+  <p>Synthesized from <a href="https://github.com/TaisoAI/tcagent">tcagent</a> · <a href="https://github.com/Blastgits/longshot">Longshot</a> · <a href="https://github.com/ComposioHQ/agent-orchestrator">Agent Orchestrator</a> · <a href="https://github.com/davebcn87/pi-autoresearch">pi-autoresearch</a></p>
+  <p style="margin-top:6px;">All codebases verified against source. March 2026.</p>
+</div>
+
+</body>
+</html>
