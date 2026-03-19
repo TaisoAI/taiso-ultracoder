@@ -104,12 +104,20 @@ export async function loadPlugin(
 
 	try {
 		const mod = (await import(packageName)) as {
-			default?: Plugin;
-			create?: (config: Record<string, unknown>) => Plugin;
+			default?: Plugin | ((cfg: Record<string, unknown>) => Plugin);
+			create?: (cfg: Record<string, unknown>) => Plugin;
 		};
-		const plugin = mod.default ?? mod.create?.(config);
-		if (!plugin) {
-			logger.error(`Plugin '${packageName}' has no default export or create function`);
+		// Plugins export either a factory function or a plugin instance
+		let plugin: Plugin | undefined;
+		if (typeof mod.create === "function") {
+			plugin = mod.create(config);
+		} else if (typeof mod.default === "function") {
+			plugin = (mod.default as (cfg: Record<string, unknown>) => Plugin)(config);
+		} else if (mod.default && typeof mod.default === "object" && "meta" in mod.default) {
+			plugin = mod.default as Plugin;
+		}
+		if (!plugin || !plugin.meta) {
+			logger.error(`Plugin '${packageName}' has no valid create function or default export`);
 			return;
 		}
 		registry.register(plugin);

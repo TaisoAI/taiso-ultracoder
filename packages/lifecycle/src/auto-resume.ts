@@ -44,21 +44,29 @@ export async function buildResumeContext(session: Session, deps: Deps): Promise<
 	let gitLog = "";
 
 	try {
-		const result = await execFile("git", ["diff", "main...HEAD", "--stat"], execOpts);
+		const result = await execFile(
+			"git",
+			["diff", `${deps.config.defaultBranch}...HEAD`, "--stat"],
+			execOpts,
+		);
 		gitDiffStat = result.stdout.trim();
 	} catch {
 		// git command failed — workspace may not be a git repo or main doesn't exist
 	}
 
 	try {
-		const result = await execFile("git", ["diff", "main...HEAD"], execOpts);
+		const result = await execFile("git", ["diff", `${deps.config.defaultBranch}...HEAD`], execOpts);
 		gitDiff = result.stdout.trim();
 	} catch {
 		// ignore
 	}
 
 	try {
-		const result = await execFile("git", ["log", "--oneline", "main...HEAD"], execOpts);
+		const result = await execFile(
+			"git",
+			["log", "--oneline", `${deps.config.defaultBranch}...HEAD`],
+			execOpts,
+		);
 		gitLog = result.stdout.trim();
 	} catch {
 		// ignore

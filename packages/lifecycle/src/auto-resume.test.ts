@@ -84,7 +84,7 @@ function makeDeps(sessionOverrides?: Partial<Session>): Deps {
 			logsDir: vi.fn().mockReturnValue("/data/sessions/sess-1/logs"),
 			archiveDir: vi.fn().mockReturnValue("/data/archive"),
 		},
-		config: {} as Deps["config"],
+		config: { defaultBranch: "main" } as Deps["config"],
 	} as unknown as Deps;
 }
 

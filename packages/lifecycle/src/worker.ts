@@ -286,10 +286,19 @@ export class LifecycleWorker {
 				}
 				break;
 			}
-			case "resume":
+			case "resume": {
+				// Attempt auto-resume for stuck sessions
+				const { handleAutoResume } = await import("./auto-resume.js");
+				const resumed = await handleAutoResume(session, this.deps);
+				if (!resumed) {
+					this.logger.info("Auto-resume failed, requires manual handling", {
+						sessionId: session.id,
+					});
+				}
+				break;
+			}
 			case "escalate":
-				// These require human intervention or additional context
-				this.logger.info(`Action '${action.type}' requires manual handling`, {
+				this.logger.info("Escalation requires human intervention", {
 					sessionId: session.id,
 				});
 				break;

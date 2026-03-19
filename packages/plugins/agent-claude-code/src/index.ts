@@ -65,8 +65,10 @@ export function create(config: ClaudeCodeAgentConfig = {}): AgentPlugin {
 					};
 
 				case "system":
+					// Only end_turn means successful completion;
+					// max_tokens and other stop reasons indicate context exhaustion
 					return {
-						type: "completed",
+						type: event.stopReason === "end_turn" ? "completed" : "error",
 						timestamp: now,
 						detail: event.stopReason,
 					};

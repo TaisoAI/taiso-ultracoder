@@ -38,6 +38,7 @@ export class Orchestrator {
 	private readonly deps: Deps;
 	private readonly logger: Logger;
 	private cycleCount = 0;
+	private cycleInProgress = false;
 
 	constructor(deps: Deps, callbacks: OrchestratorCallbacks, config?: Partial<OrchestratorConfig>) {
 		this.deps = deps;
@@ -84,6 +85,16 @@ export class Orchestrator {
 
 	/** Execute a single orchestration cycle. */
 	async runCycle(): Promise<void> {
+		if (this.cycleInProgress) return;
+		this.cycleInProgress = true;
+		try {
+			await this.doCycle();
+		} finally {
+			this.cycleInProgress = false;
+		}
+	}
+
+	private async doCycle(): Promise<void> {
 		this.cycleCount++;
 		const cycleId = this.cycleCount;
 
