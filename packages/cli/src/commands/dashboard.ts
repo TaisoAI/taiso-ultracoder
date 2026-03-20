@@ -75,6 +75,24 @@ function getIntent(session: Session): string {
 	return "-";
 }
 
+function getExperimentInfo(session: Session): string | null {
+	const exp = session.metadata?.experiment;
+	if (!exp || typeof exp !== "object") return null;
+	const e = exp as {
+		enabled?: boolean;
+		status?: string;
+		iteration?: number;
+		termination?: { maxIterations?: number };
+		bestValue?: number | null;
+		metric?: { name?: string; direction?: string };
+	};
+	if (!e.enabled) return null;
+	const iter = `${e.iteration ?? 0}/${e.termination?.maxIterations ?? "?"}`;
+	const best = e.bestValue !== null && e.bestValue !== undefined ? String(e.bestValue) : "-";
+	const dir = e.metric?.direction === "up" ? "\u2191" : "\u2193";
+	return `iter ${iter} best:${best}${dir}`;
+}
+
 function estimateCost(session: Session): number {
 	const cost = session.metadata?.costUsd;
 	if (typeof cost === "number") return cost;
@@ -115,10 +133,13 @@ function render(sessions: Session[], projectName: string): string {
 		const statusStr = colorize(s.status.padEnd(16), statusColor);
 		const intent = truncate(getIntent(s), 12).padEnd(12);
 		const duration = formatDuration(s.createdAt).padEnd(10);
-		const task = truncate(s.task, Math.max(width - 74, 20));
+		const expInfo = getExperimentInfo(s);
+		const taskDisplay = expInfo
+			? `${colorize(expInfo, FG.cyan)} ${truncate(s.task, Math.max(width - 94, 15))}`
+			: truncate(s.task, Math.max(width - 74, 20));
 
 		lines.push(
-			`  ${s.id.padEnd(10)} ${statusStr} ${s.agentType.padEnd(14)} ${intent} ${duration} ${task}`,
+			`  ${s.id.padEnd(10)} ${statusStr} ${s.agentType.padEnd(14)} ${intent} ${duration} ${taskDisplay}`,
 		);
 	}
 

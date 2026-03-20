@@ -20,4 +20,58 @@ describe("tracker-github", () => {
 		const plugin = create({ repo: "owner/repo" });
 		expect(plugin.meta.name).toBe("tracker-github");
 	});
+
+	describe("validateId", () => {
+		const tracker = create({ ghPath: "/bin/false" });
+
+		const invalidIds = [
+			"--repo=evil/repo",
+			"abc",
+			"12a",
+			"",
+			" 42",
+			"42 ",
+			"-1",
+			"1.5",
+			"1\n2",
+		];
+
+		describe("updateIssue rejects invalid IDs", () => {
+			for (const id of invalidIds) {
+				it(`rejects "${id}"`, async () => {
+					await expect(tracker.updateIssue(id, { title: "x" })).rejects.toThrow(
+						"must be a numeric string",
+					);
+				});
+			}
+		});
+
+		describe("addComment rejects invalid IDs", () => {
+			for (const id of invalidIds) {
+				it(`rejects "${id}"`, async () => {
+					await expect(tracker.addComment!(id, "body")).rejects.toThrow(
+						"must be a numeric string",
+					);
+				});
+			}
+		});
+
+		describe("getIssue rejects invalid IDs", () => {
+			for (const id of invalidIds) {
+				it(`rejects "${id}"`, async () => {
+					await expect(tracker.getIssue(id)).rejects.toThrow("must be a numeric string");
+				});
+			}
+		});
+
+		describe("valid numeric IDs pass validation", () => {
+			for (const id of ["1", "42", "99999"]) {
+				it(`accepts "${id}" (fails at exec, not validation)`, async () => {
+					const err = await tracker.getIssue(id).catch((e: Error) => e);
+					expect(err).toBeInstanceOf(Error);
+					expect((err as Error).message).not.toContain("must be a numeric string");
+				});
+			}
+		});
+	});
 });

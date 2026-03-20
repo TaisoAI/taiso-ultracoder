@@ -32,6 +32,8 @@ spawning → working → pr_open → review_pending → approved → mergeable �
 
 ## State Machine
 
+The canonical state machine lives in `@ultracoder/core` and is enforced at the persistence layer via `SessionManager.transition(id, event)`, which atomically validates and applies transitions. The `@ultracoder/lifecycle` package re-exports from core.
+
 Transitions are validated as exact `(from, event)` pairs. A semantically wrong event is rejected even if the target state would be reachable by a different event.
 
 ### Events (14)
@@ -119,15 +121,33 @@ Escalation uses both mechanisms:
 | `escalate` | Notify human for manual intervention |
 | `resume` | Requires manual handling (logged) |
 
+### Using Transitions
+
+The `SessionManager.transition()` method provides atomic, validated state transitions:
+
+```typescript
+// Atomically validate + apply a transition
+const updated = await sessions.transition(sessionId, "open_pr");
+// Throws if the transition is invalid from the current state
+
+// Check if a transition is valid without applying it
+const result = canTransition(session.status, "approve");
+if (result.valid) {
+  // result.to contains the target state
+}
+```
+
 ## Lifecycle Worker
 
-The worker runs as a background polling loop checking all `working` sessions every 30 seconds.
+The worker runs as a background polling loop that queries all active sessions (`working`, `pr_open`, `review_pending`, `approved`, `mergeable`) in a single batch call every 30 seconds.
 
 ### Detection Steps
 
-1. **Agent activity** — Parse JSONL activity logs for last event
-2. **Stuck detection** — Check if idle time exceeds threshold (default: 5 minutes)
-3. **Completion** — If agent reports completed, transition to `pr_open`
+1. **Runtime alive check** — Verify agent process is still running
+2. **Agent activity** — Parse JSONL activity logs for last event
+3. **Completion** — If agent reports completed, transition to `pr_open` (or handle experiment iteration)
+4. **PR state** — Check CI status, review decisions, merge conflicts via SCM plugin
+5. **Stuck detection** — Check if idle time exceeds threshold (default: 5 minutes)
 
 ### Poll Overlap Guard
 

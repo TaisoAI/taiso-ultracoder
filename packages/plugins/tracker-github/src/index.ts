@@ -18,6 +18,12 @@ function exec(cmd: string, args: string[]): Promise<{ stdout: string; stderr: st
 	});
 }
 
+function validateId(id: string): void {
+	if (!/^\d+$/.test(id)) {
+		throw new Error(`Invalid ID "${id}": must be a numeric string`);
+	}
+}
+
 export function create(config: GitHubTrackerConfig = {}): TrackerPlugin {
 	const gh = config.ghPath ?? "gh";
 	const repoArgs = config.repo ? ["--repo", config.repo] : [];
@@ -50,6 +56,7 @@ export function create(config: GitHubTrackerConfig = {}): TrackerPlugin {
 		},
 
 		async updateIssue(id: string, update: Partial<TrackerIssueOpts>): Promise<void> {
+			validateId(id);
 			const args = ["issue", "edit", id, ...repoArgs];
 
 			if (update.title) {
@@ -108,6 +115,7 @@ export function create(config: GitHubTrackerConfig = {}): TrackerPlugin {
 		},
 
 		async addComment(issueId: string, body: string): Promise<string> {
+			validateId(issueId);
 			const { stdout } = await exec(gh, [
 				"issue",
 				"comment",
@@ -120,6 +128,7 @@ export function create(config: GitHubTrackerConfig = {}): TrackerPlugin {
 		},
 
 		async getIssue(id: string): Promise<TrackerIssue> {
+			validateId(id);
 			const { stdout } = await exec(gh, [
 				"issue",
 				"view",

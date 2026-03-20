@@ -70,6 +70,7 @@ export const SessionConfigSchema = z.object({
 	agent: AgentConfigSchema.default({}),
 	quality: QualityConfigSchema.default({}),
 	maxConcurrent: z.number().positive().default(4),
+	maxConcurrentSessions: z.number().positive().default(10),
 	autoResume: z.boolean().default(true),
 	cooldownSeconds: z.number().nonnegative().default(30),
 	reactions: ReactionConfigSchema,
@@ -158,6 +159,7 @@ export const ProjectConfigSchema = z.object({
 	plugins: z.record(PluginRefSchema).default({}),
 	pricing: PricingSchema,
 	llm: LLMConfigSchema,
+	trustedPlugins: z.array(z.string()).default([]),
 	storageBackend: z.enum(["file", "sqlite"]).default("file"),
 	workspace: z
 		.object({

@@ -1,4 +1,5 @@
 import type { Deps, Logger, Session, SessionStatus } from "@ultracoder/core";
+import { ExperimentRunner, isExperimentSession } from "@ultracoder/experiment";
 import { detectActivity, isStuck } from "./activity-detector.js";
 import { type ReactionAction, evaluateReaction } from "./reactions.js";
 import { canTransition } from "./state-machine.js";
@@ -80,21 +81,7 @@ export class LifecycleWorker {
 	}
 
 	private async doPoll(): Promise<void> {
-		// Query all active statuses; the SessionManager.list() filter only takes
-		// a single status, so we issue parallel calls and deduplicate by id.
-		const results = await Promise.all(
-			ACTIVE_STATUSES.map((status) => this.deps.sessions.list({ status })),
-		);
-		const seen = new Set<string>();
-		const sessions: Session[] = [];
-		for (const batch of results) {
-			for (const s of batch) {
-				if (!seen.has(s.id)) {
-					seen.add(s.id);
-					sessions.push(s);
-				}
-			}
-		}
+		const sessions = await this.deps.sessions.list({ status: [...ACTIVE_STATUSES] });
 
 		for (const session of sessions) {
 			try {
@@ -142,9 +129,37 @@ export class LifecycleWorker {
 			return;
 		}
 
-		// Step 3: Agent completion → open PR
+		// Step 3: Agent completion → open PR (or experiment iteration)
 		try {
 			if (summary.isCompleted && session.status === "working") {
+				// Experiment sessions: run measure/evaluate/keep-discard cycle
+				if (isExperimentSession(session)) {
+					const runner = new ExperimentRunner(this.deps);
+					const result = await runner.handleIterationComplete(session);
+					if (result.continues) {
+						// Stay in "working" — update iteration metadata so the
+						// runtime plugin can re-spawn the agent on the next poll.
+						await this.deps.sessions.update(session.id, {
+							metadata: {
+								...session.metadata,
+								lastIterationAt: new Date().toISOString(),
+							},
+						});
+					} else {
+						// Experiment terminated — transition to pr_open
+						const transition = canTransition(session.status, "open_pr");
+						if (transition.valid) {
+							await this.deps.sessions.update(session.id, {
+								status: "pr_open",
+								completedAt: new Date().toISOString(),
+							});
+							const action = evaluateReaction("completed", session, this.logger);
+							await this.executeAction(action, session);
+						}
+					}
+					return;
+				}
+
 				const transition = canTransition(session.status, "open_pr");
 				if (transition.valid) {
 					await this.deps.sessions.update(session.id, {

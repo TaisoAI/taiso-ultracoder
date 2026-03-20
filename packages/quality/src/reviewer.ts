@@ -112,6 +112,7 @@ export async function reviewDiff(
 	try {
 		const { stdout } = await execFile(agentPath, args, {
 			timeout: timeoutMs,
+			maxBuffer: 10 * 1024 * 1024,
 		});
 		return parseReviewOutput(stdout);
 	} catch (err: unknown) {

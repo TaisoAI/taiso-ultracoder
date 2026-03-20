@@ -86,6 +86,10 @@ export { loadConfig, mergeConfig } from "./config.js";
 export { WeightedRouter } from "./llm-router.js";
 export type { LLMEndpoint } from "./llm-router.js";
 
+// State machine
+export { canTransition, SESSION_TRANSITIONS, validEvents } from "./state-machine.js";
+export type { SessionEvent, TransitionResult } from "./state-machine.js";
+
 // Session manager
 export { FileSessionManager } from "./session-manager.js";
 export { createSessionManager } from "./session-manager-factory.js";
@@ -94,3 +98,7 @@ export type { StorageBackend, SessionManagerFactoryOpts } from "./session-manage
 // Orchestrator
 export { Orchestrator } from "./orchestrator.js";
 export type { OrchestratorConfig, OrchestratorCallbacks } from "./orchestrator.js";
+
+// Spawn pipeline
+export { runSpawnPipeline } from "./spawn-pipeline.js";
+export type { SpawnPipelineOpts, SpawnPipelineResult } from "./spawn-pipeline.js";

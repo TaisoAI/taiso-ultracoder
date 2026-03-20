@@ -61,7 +61,8 @@ export async function runQualityPipeline(
 		try {
 			veracity = await checkVeracity(opts.content, config.veracity, logger);
 		} catch (err) {
-			errors.push(`Veracity check failed: ${err}`);
+			const message = err instanceof Error ? err.message : String(err);
+			errors.push(`Veracity check failed: ${message}`);
 		}
 	}
 
@@ -69,7 +70,8 @@ export async function runQualityPipeline(
 	try {
 		filesystemVeracity = await checkVeracityFilesystem(opts.projectPath, opts.claimedFiles);
 	} catch (err) {
-		errors.push(`Filesystem veracity check failed: ${err}`);
+		const message = err instanceof Error ? err.message : String(err);
+		errors.push(`Filesystem veracity check failed: ${message}`);
 	}
 
 	// Stage 2: Tool policy evaluation
@@ -87,7 +89,8 @@ export async function runQualityPipeline(
 	try {
 		gates = await runGates(opts.projectPath, config.gates, logger);
 	} catch (err) {
-		errors.push(`Quality gates failed: ${err}`);
+		const message = err instanceof Error ? err.message : String(err);
+		errors.push(`Quality gates failed: ${message}`);
 	}
 
 	// Stage 4: Reviewer
@@ -99,7 +102,8 @@ export async function runQualityPipeline(
 				logger,
 			);
 		} catch (err) {
-			errors.push(`Reviewer failed: ${err}`);
+			const message = err instanceof Error ? err.message : String(err);
+			errors.push(`Reviewer failed: ${message}`);
 		}
 	}
 

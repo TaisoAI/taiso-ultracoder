@@ -11,7 +11,8 @@
     }
   },
   "dependencies": {
-    "@ultracoder/core": "workspace:*"
+    "@ultracoder/core": "workspace:*",
+    "@ultracoder/experiment": "workspace:*"
   },
   "scripts": {
     "build": "tsc -b",

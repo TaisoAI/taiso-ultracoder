@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import * as fs from "node:fs";
-import type { Logger, PathResolver, Session, SessionManager } from "./types.js";
+import { canTransition } from "./state-machine.js";
+import type { SessionEvent } from "./state-machine.js";
+import type { Logger, PathResolver, Session, SessionManager, SessionStatus } from "./types.js";
 import { atomicWrite, safeRead } from "./util/atomic.js";
 
 export class FileSessionManager implements SessionManager {
@@ -84,7 +86,35 @@ export class FileSessionManager implements SessionManager {
 		});
 	}
 
-	async list(filter?: Partial<Pick<Session, "status" | "projectId">>): Promise<Session[]> {
+	async transition(id: string, event: SessionEvent): Promise<Session> {
+		return this.withLock(id, async () => {
+			const existing = await this.get(id);
+			if (!existing) {
+				throw new Error(`Session '${id}' not found`);
+			}
+
+			const result = canTransition(existing.status, event);
+			if (!result.valid) {
+				throw new Error(
+					result.reason ?? `Cannot transition from '${existing.status}' via '${event}'`,
+				);
+			}
+
+			const updated: Session = {
+				...existing,
+				status: result.to,
+				updatedAt: new Date().toISOString(),
+			};
+
+			await atomicWrite(this.paths.sessionFile(id), JSON.stringify(updated, null, "\t"));
+			this.logger.info(`Transitioned session '${id}': ${existing.status} -> ${result.to}`, {
+				event,
+			});
+			return updated;
+		});
+	}
+
+	async list(filter?: Partial<Pick<Session, "projectId">> & { status?: SessionStatus | SessionStatus[] }): Promise<Session[]> {
 		const sessionsDir = this.paths.sessionsDir();
 
 		try {
@@ -96,7 +126,13 @@ export class FileSessionManager implements SessionManager {
 				const session = await this.get(entry.name);
 				if (!session) continue;
 
-				if (filter?.status && session.status !== filter.status) continue;
+				if (filter?.status) {
+					if (Array.isArray(filter.status)) {
+						if (!filter.status.includes(session.status)) continue;
+					} else {
+						if (session.status !== filter.status) continue;
+					}
+				}
 				if (filter?.projectId && session.projectId !== filter.projectId) continue;
 
 				sessions.push(session);

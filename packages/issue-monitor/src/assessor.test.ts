@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { parseAssessmentOutput } from "./assessor.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { parseAssessmentOutput, runAssessment } from "./assessor.js";
+import type { Logger } from "@ultracoder/core";
 
 describe("parseAssessmentOutput", () => {
 	it("parses clean JSON output", () => {
@@ -164,5 +165,185 @@ This should resolve the problem.`;
 		const result = parseAssessmentOutput(output);
 		expect(result).not.toBeNull();
 		expect(result!.relatedFiles).toEqual([]);
+	});
+});
+
+// ── buildPrompt (tested indirectly via runAssessment) ────────────────
+
+// We cannot import buildPrompt directly (not exported), but we can verify
+// it through runAssessment by checking the arguments passed to execFile.
+
+vi.mock("node:child_process", () => ({
+	execFile: vi.fn(),
+}));
+
+vi.mock("node:util", async (importOriginal) => {
+	const actual = (await importOriginal()) as Record<string, unknown>;
+	return {
+		...actual,
+		promisify: (fn: unknown) => {
+			// Return a mock that delegates to our mocked execFile
+			return async (...args: unknown[]) => {
+				const { execFile: mockExecFile } = await import("node:child_process");
+				return new Promise((resolve, reject) => {
+					(mockExecFile as unknown as (...a: unknown[]) => void)(...args, (err: unknown, stdout: string, stderr: string) => {
+						if (err) reject(err);
+						else resolve({ stdout, stderr });
+					});
+				});
+			};
+		},
+	};
+});
+
+function makeLogger(): Logger {
+	const noop = () => {};
+	return {
+		debug: noop,
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		child: () => makeLogger(),
+	};
+}
+
+describe("runAssessment", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("builds prompt with issue id, title, and body", async () => {
+		const { execFile } = await import("node:child_process");
+		const mockExecFile = vi.mocked(execFile);
+		const validOutput = JSON.stringify({
+			severity: "high",
+			effort: "small",
+			rootCause: "Null check missing",
+			proposedFix: "Add guard",
+			relatedFiles: ["src/a.ts"],
+			confidence: 0.9,
+		});
+		mockExecFile.mockImplementation((...args: unknown[]) => {
+			const cb = args[args.length - 1] as (err: unknown, stdout: string, stderr: string) => void;
+			cb(null, validOutput, "");
+			return undefined as never;
+		});
+
+		await runAssessment("claude", "42", "Bug title", "Bug body text", {
+			agentPath: "/usr/bin/agent",
+			timeoutMs: 30000,
+		}, makeLogger());
+
+		// Verify execFile was called with the agent path
+		expect(mockExecFile).toHaveBeenCalled();
+		const callArgs = mockExecFile.mock.calls[0];
+		// First arg is the binary path
+		expect(callArgs[0]).toBe("/usr/bin/agent");
+		// Second arg is the argument array containing the prompt
+		const argArray = callArgs[1] as string[];
+		expect(argArray[0]).toBe("-p");
+		// The prompt should contain the issue details
+		const prompt = argArray[1];
+		expect(prompt).toContain("#42");
+		expect(prompt).toContain("Bug title");
+		expect(prompt).toContain("Bug body text");
+	});
+
+	it("passes maxBuffer of 10MB and configured timeout to execFile", async () => {
+		const { execFile } = await import("node:child_process");
+		const mockExecFile = vi.mocked(execFile);
+		const validOutput = JSON.stringify({
+			severity: "medium",
+			effort: "medium",
+			rootCause: "Race condition",
+			proposedFix: "Add lock",
+			relatedFiles: [],
+			confidence: 0.7,
+		});
+		mockExecFile.mockImplementation((...args: unknown[]) => {
+			const cb = args[args.length - 1] as (err: unknown, stdout: string, stderr: string) => void;
+			cb(null, validOutput, "");
+			return undefined as never;
+		});
+
+		await runAssessment("claude", "1", "Title", "Body", {
+			agentPath: "/usr/bin/agent",
+			timeoutMs: 60000,
+		}, makeLogger());
+
+		const callArgs = mockExecFile.mock.calls[0];
+		const opts = callArgs[2] as { timeout: number; maxBuffer: number };
+		expect(opts.timeout).toBe(60000);
+		expect(opts.maxBuffer).toBe(10 * 1024 * 1024);
+	});
+
+	it("returns parsed assessment when agent output is valid JSON", async () => {
+		const { execFile } = await import("node:child_process");
+		const mockExecFile = vi.mocked(execFile);
+		mockExecFile.mockImplementation((...args: unknown[]) => {
+			const cb = args[args.length - 1] as (err: unknown, stdout: string, stderr: string) => void;
+			cb(null, JSON.stringify({
+				severity: "critical",
+				effort: "large",
+				rootCause: "Memory leak in event loop",
+				proposedFix: "Dispose listeners properly",
+				relatedFiles: ["src/events.ts", "src/loop.ts"],
+				confidence: 0.92,
+			}), "");
+			return undefined as never;
+		});
+
+		const result = await runAssessment("claude", "99", "Mem leak", "OOM in prod", {
+			agentPath: "/usr/bin/agent",
+			timeoutMs: 30000,
+		}, makeLogger());
+
+		expect(result.agent).toBe("claude");
+		expect(result.severity).toBe("critical");
+		expect(result.effort).toBe("large");
+		expect(result.rootCause).toBe("Memory leak in event loop");
+		expect(result.proposedFix).toBe("Dispose listeners properly");
+		expect(result.relatedFiles).toEqual(["src/events.ts", "src/loop.ts"]);
+		expect(result.confidence).toBe(0.92);
+		expect(result.completedAt).toBeDefined();
+	});
+
+	it("returns defaults when agent output is not parseable", async () => {
+		const { execFile } = await import("node:child_process");
+		const mockExecFile = vi.mocked(execFile);
+		mockExecFile.mockImplementation((...args: unknown[]) => {
+			const cb = args[args.length - 1] as (err: unknown, stdout: string, stderr: string) => void;
+			cb(null, "I could not analyze this issue properly.", "");
+			return undefined as never;
+		});
+
+		const result = await runAssessment("codex", "5", "Title", "Body", {
+			agentPath: "/usr/bin/agent",
+			timeoutMs: 30000,
+		}, makeLogger());
+
+		expect(result.agent).toBe("codex");
+		expect(result.severity).toBe("medium");
+		expect(result.effort).toBe("medium");
+		expect(result.rootCause).toContain("not parseable");
+		expect(result.confidence).toBe(0.1);
+		expect(result.relatedFiles).toEqual([]);
+	});
+
+	it("throws when execFile fails", async () => {
+		const { execFile } = await import("node:child_process");
+		const mockExecFile = vi.mocked(execFile);
+		mockExecFile.mockImplementation((...args: unknown[]) => {
+			const cb = args[args.length - 1] as (err: unknown, stdout: string, stderr: string) => void;
+			cb(new Error("Process exited with code 1"), "", "");
+			return undefined as never;
+		});
+
+		await expect(
+			runAssessment("claude", "7", "Title", "Body", {
+				agentPath: "/usr/bin/agent",
+				timeoutMs: 30000,
+			}, makeLogger()),
+		).rejects.toThrow("Assessment by claude failed: Process exited with code 1");
 	});
 });

@@ -25,6 +25,12 @@ function exec(cmd: string, args: string[]): Promise<{ stdout: string; stderr: st
 	});
 }
 
+function validateId(id: string): void {
+	if (!/^\d+$/.test(id)) {
+		throw new Error(`Invalid ID "${id}": must be a numeric string`);
+	}
+}
+
 export function create(config: GitHubScmConfig = {}): ScmPlugin {
 	const gh = config.ghPath ?? "gh";
 	const repoArgs = config.repo ? ["--repo", config.repo] : [];
@@ -61,6 +67,7 @@ export function create(config: GitHubScmConfig = {}): ScmPlugin {
 		},
 
 		async getPRStatus(id: string): Promise<PullRequestStatus> {
+			validateId(id);
 			const { stdout } = await exec(gh, [
 				"pr",
 				"view",
@@ -125,6 +132,7 @@ export function create(config: GitHubScmConfig = {}): ScmPlugin {
 		},
 
 		async mergePR(id: string, strategy?: MergeStrategy): Promise<void> {
+			validateId(id);
 			const args = ["pr", "merge", id, ...repoArgs];
 			const flag =
 				strategy === "rebase" ? "--rebase" : strategy === "squash" ? "--squash" : "--merge";

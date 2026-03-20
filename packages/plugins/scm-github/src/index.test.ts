@@ -21,4 +21,46 @@ describe("scm-github", () => {
 		const plugin = create({ repo: "owner/repo" });
 		expect(plugin.meta.name).toBe("scm-github");
 	});
+
+	describe("validateId", () => {
+		const scm = create({ ghPath: "/bin/false" });
+
+		const invalidIds = [
+			"--repo=evil/repo",
+			"abc",
+			"12a",
+			"",
+			" 42",
+			"42 ",
+			"-1",
+			"1.5",
+			"1\n2",
+		];
+
+		describe("getPRStatus rejects invalid IDs", () => {
+			for (const id of invalidIds) {
+				it(`rejects "${id}"`, async () => {
+					await expect(scm.getPRStatus(id)).rejects.toThrow("must be a numeric string");
+				});
+			}
+		});
+
+		describe("mergePR rejects invalid IDs", () => {
+			for (const id of invalidIds) {
+				it(`rejects "${id}"`, async () => {
+					await expect(scm.mergePR(id)).rejects.toThrow("must be a numeric string");
+				});
+			}
+		});
+
+		describe("valid numeric IDs pass validation", () => {
+			for (const id of ["1", "42", "99999"]) {
+				it(`accepts "${id}" (fails at exec, not validation)`, async () => {
+					const err = await scm.getPRStatus(id).catch((e: Error) => e);
+					expect(err).toBeInstanceOf(Error);
+					expect((err as Error).message).not.toContain("must be a numeric string");
+				});
+			}
+		});
+	});
 });

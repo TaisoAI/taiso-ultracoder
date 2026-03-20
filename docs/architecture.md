@@ -23,6 +23,7 @@ Ultracoder synthesizes patterns from four open-source projects, following these 
 ┌────────────────────▼────────────────────────────────┐
 │               @ultracoder/core                       │
 │  Types, Plugin Registry, Session Manager,            │
+│  State Machine, Spawn Pipeline,                      │
 │  Config (Zod YAML), Paths, Logger, Utilities         │
 │  (Atomic writes, KV Store, JSONL)                    │
 └──┬────────┬────────┬────────┬───────────────────────┘
@@ -55,15 +56,20 @@ Ultracoder synthesizes patterns from four open-source projects, following these 
 ```
 1. CLI: uc spawn "task"
    → SessionManager.create() → status: "spawning"
-   → WorkspacePlugin.create() → git worktree
-   → AgentPlugin.buildCommand() → claude -p "task" --output-format stream-json
-   → RuntimePlugin.spawn() → tmux new-session
-   → SessionManager.update() → status: "working"
+   → runSpawnPipeline() — shared pipeline with concurrency guard:
+     → Check maxConcurrentSessions limit (excludes current session)
+     → WorkspacePlugin.create() → git worktree
+     → AgentPlugin.buildCommand() → claude -p "task" --output-format stream-json
+     → RuntimePlugin.spawn() → tmux new-session
+     → SessionManager.update() → status: "working"
+   → On failure: session set to "failed", error thrown
 
 2. Lifecycle Worker (every 30s):
-   → detectActivity(session.logs) → { isCompleted, isStuck, intent }
-   → If completed: canTransition("working", "open_pr") → status: "pr_open"
-   → If stuck: evaluateReaction("stuck", meta) → action
+   → sessions.list({ status: [all active statuses] }) → single batch query
+   → For each session:
+     → detectActivity(session.logs) → { isCompleted, isStuck, intent }
+     → If completed: canTransition("working", "open_pr") → status: "pr_open"
+     → If stuck: evaluateReaction("stuck", meta) → action
 
 3. SCM Integration:
    → ScmPlugin.getPRStatus() → { state, reviewDecision, ciStatus }
@@ -162,8 +168,10 @@ Heuristic classifier maps tool usage patterns to 8 intent types (exploring, plan
 ## Security Model
 
 - **Tool policy**: 4-tier approval with heuristic rules for the evaluate tier (network boundaries, scope containment, resource limits)
-- **Plugin allowlist**: Only `@ultracoder/*` packages loaded by default
+- **Plugin allowlist**: Only `@ultracoder/*` packages loaded by default; custom plugins require `trustedPlugins` config
 - **Session ID validation**: CLI validates against `/^[a-f0-9]{8}$/` pattern
+- **Issue/PR ID validation**: Numeric-only validation (`/^\d+$/`) on all GitHub tracker and SCM plugin methods, preventing argument injection
 - **Atomic writes**: Temp file + rename prevents partial writes
-- **Safe numeric parsing**: `retryCount` and other metadata fields validated at runtime
+- **Safe numeric parsing**: `retryCount` and other metadata fields validated at runtime; experiment CLI options use `Number.isFinite` guards
 - **Shell quoting**: tmux plugin uses POSIX single-quote escaping for arguments
+- **Concurrency limits**: `maxConcurrentSessions` enforced at the spawn pipeline to prevent resource exhaustion

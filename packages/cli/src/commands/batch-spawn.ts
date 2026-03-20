@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
-import type { AgentPlugin, RuntimePlugin, Session, WorkspacePlugin } from "@ultracoder/core";
+import type { Session } from "@ultracoder/core";
+import { runSpawnPipeline } from "@ultracoder/core";
 import { Command } from "commander";
 import { buildContext } from "../context.js";
 
@@ -58,50 +59,18 @@ export function batchSpawnCommand(): Command {
 							metadata: {},
 						});
 
-						// --- Workspace ---
-						const workspace = ctx.plugins.get("workspace") as WorkspacePlugin | undefined;
-						let workspacePath = ctx.config.rootPath;
-
-						if (workspace) {
-							const workspaceInfo = await workspace.create({
-								projectPath: ctx.config.rootPath,
-								branch,
-								sessionId: session.id,
-							});
-							workspacePath = workspaceInfo.path;
-							await ctx.sessions.update(session.id, { workspacePath: workspaceInfo.path });
-						}
-
-						// --- Agent command ---
-						const agent = ctx.plugins.get("agent") as AgentPlugin | undefined;
-						if (!agent) {
-							return session;
-						}
-
-						const cmd = agent.buildCommand({
+						const result = await runSpawnPipeline({
+							session,
 							task,
-							workspacePath,
-							config: ctx.config.session.agent,
+							deps: ctx,
+							logger: ctx.logger,
 						});
 
-						// --- Runtime ---
-						const runtime = ctx.plugins.get("runtime") as RuntimePlugin | undefined;
-						if (!runtime) {
-							return session;
+						if (result.runtimeHandle) {
+							const updated = await ctx.sessions.get(session.id);
+							return updated ?? session;
 						}
-
-						const handle = await runtime.spawn({
-							command: cmd.command,
-							args: cmd.args,
-							cwd: workspacePath,
-							name: `uc-${session.id}`,
-						});
-
-						return await ctx.sessions.update(session.id, {
-							status: "working",
-							runtimeId: handle.id,
-							pid: handle.pid,
-						});
+						return session;
 					}),
 				);
 

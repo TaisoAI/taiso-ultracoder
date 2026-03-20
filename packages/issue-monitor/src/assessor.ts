@@ -107,7 +107,7 @@ export async function runAssessment(
 		const { stdout } = await execFile(
 			config.agentPath,
 			["-p", prompt, "--output-format", "text"],
-			{ timeout: config.timeoutMs },
+			{ timeout: config.timeoutMs, maxBuffer: 10 * 1024 * 1024 },
 		);
 
 		const parsed = parseAssessmentOutput(stdout);

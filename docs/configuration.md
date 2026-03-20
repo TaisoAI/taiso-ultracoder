@@ -87,14 +87,22 @@ session:
       maxRetries: 1
       escalateAfterMs: 600000  # 10 minutes
 
-  # Max concurrent sessions
+  # Max concurrent sessions per lifecycle worker cycle
   maxConcurrent: 4  # default: 4
+
+  # Global spawn limit — enforced at the spawn pipeline
+  # Prevents resource exhaustion by rejecting new spawns when limit is reached
+  maxConcurrentSessions: 10  # default: 10
 
   # Auto-resume on context exhaustion
   autoResume: true  # default: true
 
   # Cooldown before auto-resume (seconds)
   cooldownSeconds: 30  # default: 30
+
+# Trusted custom plugins (outside @ultracoder/* namespace)
+# By default only @ultracoder/* packages are loaded
+trustedPlugins: []  # e.g. ["my-custom-runtime-plugin"]
 
 # Plugin configuration
 plugins:

@@ -237,6 +237,7 @@ export async function decomposeTask(
 	try {
 		const { stdout } = await execFile(agentPath, ["-p", prompt, "--output-format", "text"], {
 			timeout: timeoutMs,
+			maxBuffer: 10 * 1024 * 1024,
 		});
 
 		const subtasks = parseDecompositionOutput(stdout);

@@ -199,33 +199,21 @@ describe("LifecycleWorker", () => {
 			await poll1;
 			await poll2;
 
-			// list() should only have been called for the first poll (5 statuses)
-			expect(deps.sessions.list).toHaveBeenCalledTimes(5);
+			// list() should only have been called once for the first poll
+			expect(deps.sessions.list).toHaveBeenCalledTimes(1);
 		});
 	});
 
-	// ─── doPoll queries all active statuses ───────────────────────
+	// ─── doPoll queries all active statuses in a single call ─────
 
 	describe("doPoll queries all active statuses", () => {
-		it("queries working, pr_open, review_pending, approved, mergeable", async () => {
+		it("queries all active statuses in a single list call", async () => {
 			await worker.poll();
 
-			expect(deps.sessions.list).toHaveBeenCalledWith({ status: "working" });
-			expect(deps.sessions.list).toHaveBeenCalledWith({ status: "pr_open" });
-			expect(deps.sessions.list).toHaveBeenCalledWith({ status: "review_pending" });
-			expect(deps.sessions.list).toHaveBeenCalledWith({ status: "approved" });
-			expect(deps.sessions.list).toHaveBeenCalledWith({ status: "mergeable" });
-		});
-
-		it("deduplicates sessions returned from multiple lists", async () => {
-			const session = makeSession();
-			deps.sessions.list.mockResolvedValue([session]);
-			mockDetectActivity.mockResolvedValue(activeSummary());
-
-			await worker.poll();
-
-			// detectActivity should be called once even though session appears in all 5 lists
-			expect(mockDetectActivity).toHaveBeenCalledTimes(1);
+			expect(deps.sessions.list).toHaveBeenCalledTimes(1);
+			expect(deps.sessions.list).toHaveBeenCalledWith({
+				status: ["working", "pr_open", "review_pending", "approved", "mergeable"],
+			});
 		});
 	});
 
@@ -234,9 +222,7 @@ describe("LifecycleWorker", () => {
 	describe("runtime death detection", () => {
 		it("transitions working session to failed when runtime is dead", async () => {
 			const session = makeSession({ runtimeId: "rt-1", status: "working" });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "working" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 
 			const mockRuntime = {
 				isAlive: vi.fn().mockResolvedValue(false),
@@ -253,9 +239,7 @@ describe("LifecycleWorker", () => {
 
 		it("does not fail session when runtime is alive", async () => {
 			const session = makeSession({ runtimeId: "rt-1", status: "working" });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "working" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockRuntime = {
@@ -272,9 +256,7 @@ describe("LifecycleWorker", () => {
 
 		it("continues checking even if runtime check throws", async () => {
 			const session = makeSession({ runtimeId: "rt-1", status: "working" });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "working" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockRuntime = {
@@ -296,9 +278,7 @@ describe("LifecycleWorker", () => {
 	describe("agent completion → pr_open transition", () => {
 		it("transitions working session to pr_open when completed", async () => {
 			const session = makeSession({ status: "working" });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "working" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(completedSummary());
 
 			await worker.poll();
@@ -311,9 +291,7 @@ describe("LifecycleWorker", () => {
 
 		it("sets completedAt when transitioning to pr_open", async () => {
 			const session = makeSession({ status: "working" });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "working" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(completedSummary());
 
 			await worker.poll();
@@ -334,9 +312,7 @@ describe("LifecycleWorker", () => {
 				status: "pr_open",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "pr_open" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -358,9 +334,7 @@ describe("LifecycleWorker", () => {
 				status: "review_pending",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "review_pending" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -386,9 +360,7 @@ describe("LifecycleWorker", () => {
 				status: "pr_open",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "pr_open" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -420,9 +392,7 @@ describe("LifecycleWorker", () => {
 				status: "review_pending",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "review_pending" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -453,9 +423,7 @@ describe("LifecycleWorker", () => {
 				status: "review_pending",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "review_pending" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -484,9 +452,7 @@ describe("LifecycleWorker", () => {
 				status: "pr_open",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "pr_open" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -511,9 +477,7 @@ describe("LifecycleWorker", () => {
 				status: "mergeable",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "mergeable" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -542,9 +506,7 @@ describe("LifecycleWorker", () => {
 				status: "approved",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "approved" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -570,9 +532,7 @@ describe("LifecycleWorker", () => {
 				status: "approved",
 				metadata: { prId: "pr-42" },
 			});
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "approved" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = {
@@ -599,9 +559,7 @@ describe("LifecycleWorker", () => {
 	describe("stuck detection", () => {
 		it("triggers stuck reaction when working session is idle too long", async () => {
 			const session = makeSession({ status: "working" });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "working" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(stuckSummary());
 			mockIsStuck.mockReturnValue(true);
 
@@ -614,9 +572,7 @@ describe("LifecycleWorker", () => {
 
 		it("does not trigger stuck for non-working sessions", async () => {
 			const session = makeSession({ status: "pr_open", metadata: { prId: "pr-1" } });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "pr_open" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(stuckSummary());
 			mockIsStuck.mockReturnValue(true);
 
@@ -633,9 +589,7 @@ describe("LifecycleWorker", () => {
 	describe("edge cases", () => {
 		it("skips PR check when no scm plugin", async () => {
 			const session = makeSession({ status: "pr_open", metadata: { prId: "pr-1" } });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "pr_open" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			deps.plugins.get.mockReturnValue(undefined);
@@ -648,9 +602,7 @@ describe("LifecycleWorker", () => {
 
 		it("skips PR check when session has no prId in metadata", async () => {
 			const session = makeSession({ status: "pr_open", metadata: {} });
-			deps.sessions.list.mockImplementation(async ({ status }) =>
-				status === "pr_open" ? [session] : [],
-			);
+			deps.sessions.list.mockResolvedValue([session]);
 			mockDetectActivity.mockResolvedValue(activeSummary());
 
 			const mockScm = { getPRStatus: vi.fn() };

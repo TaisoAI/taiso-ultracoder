@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { AgentConfigSchema, ProjectConfigSchema, SessionConfigSchema } from "./schemas.js";
+import type { SessionEvent } from "./state-machine.js";
 
 // ─── Plugin Slot Names ───────────────────────────────────────────────
 export const PLUGIN_SLOTS = [
@@ -254,7 +255,8 @@ export interface SessionManager {
 	create(opts: Omit<Session, "id" | "createdAt" | "updatedAt" | "status">): Promise<Session>;
 	get(id: string): Promise<Session | undefined>;
 	update(id: string, patch: Partial<Session>): Promise<Session>;
-	list(filter?: Partial<Pick<Session, "status" | "projectId">>): Promise<Session[]>;
+	transition(id: string, event: SessionEvent): Promise<Session>;
+	list(filter?: Partial<Pick<Session, "projectId">> & { status?: SessionStatus | SessionStatus[] }): Promise<Session[]>;
 	archive(id: string): Promise<void>;
 	delete(id: string): Promise<void>;
 }

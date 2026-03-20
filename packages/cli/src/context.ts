@@ -37,7 +37,7 @@ export async function buildContext(opts?: {
 
 	// Load configured plugins
 	for (const [, ref] of Object.entries(config.plugins)) {
-		await loadPlugin(ref.package, ref.config, plugins, logger);
+		await loadPlugin(ref.package, ref.config, plugins, logger, config.trustedPlugins);
 	}
 
 	const deps: Deps = { config, logger, plugins, sessions, paths };

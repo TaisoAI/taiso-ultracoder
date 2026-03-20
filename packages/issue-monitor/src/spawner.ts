@@ -1,10 +1,5 @@
-import type {
-	AgentPlugin,
-	Deps,
-	Logger,
-	RuntimePlugin,
-	WorkspacePlugin,
-} from "@ultracoder/core";
+import type { Deps, Logger } from "@ultracoder/core";
+import { runSpawnPipeline } from "@ultracoder/core";
 import type { IssueRecord } from "./types.js";
 
 /**
@@ -41,71 +36,14 @@ export async function spawnFixSession(
 		},
 	});
 
-	// --- Workspace ---
-	const workspace = deps.plugins.get("workspace") as WorkspacePlugin | undefined;
-	let workspacePath = deps.config.rootPath;
-
-	if (workspace) {
-		try {
-			const info = await workspace.create({
-				projectPath: deps.config.rootPath,
-				branch,
-				sessionId: session.id,
-			});
-			workspacePath = info.path;
-			await deps.sessions.update(session.id, { workspacePath: info.path });
-		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			await deps.sessions.update(session.id, { status: "failed" });
-			throw new Error(`Failed to create workspace for issue ${record.issueId}: ${message}`);
-		}
-	}
-
-	// --- Agent command ---
-	const agent = deps.plugins.get("agent") as AgentPlugin | undefined;
-	if (!agent) {
-		log.warn("No agent plugin configured — session left in spawning state");
-		return session.id;
-	}
-
-	let cmd: { command: string; args: string[] };
-	try {
-		cmd = agent.buildCommand({
-			task,
-			workspacePath,
-			config: deps.config.session.agent,
-		});
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		await deps.sessions.update(session.id, { status: "failed" });
-		throw new Error(`Failed to build agent command for issue ${record.issueId}: ${message}`);
-	}
-
-	// --- Runtime ---
-	const runtime = deps.plugins.get("runtime") as RuntimePlugin | undefined;
-	if (!runtime) {
-		log.warn("No runtime plugin configured — session left in spawning state");
-		return session.id;
-	}
-
-	try {
-		const handle = await runtime.spawn({
-			command: cmd.command,
-			args: cmd.args,
-			cwd: workspacePath,
-			name: `uc-${session.id}`,
-		});
-
-		await deps.sessions.update(session.id, {
-			status: "working",
-			runtimeId: handle.id,
-			pid: handle.pid,
-		});
-	} catch (err) {
-		const message = err instanceof Error ? err.message : String(err);
-		await deps.sessions.update(session.id, { status: "failed" });
-		throw new Error(`Failed to spawn agent for issue ${record.issueId}: ${message}`);
-	}
+	// runSpawnPipeline throws on failure (which sets session to "failed"),
+	// so errors propagate naturally to callers.
+	await runSpawnPipeline({
+		session,
+		task,
+		deps,
+		logger: log,
+	});
 
 	log.info("Fix session started", { sessionId: session.id });
 	return session.id;

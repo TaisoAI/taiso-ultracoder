@@ -72,7 +72,7 @@ export async function synthesizePlan(
 		const { stdout } = await execFile(
 			config.agentPath,
 			["-p", prompt, "--output-format", "text"],
-			{ timeout: config.timeoutMs },
+			{ timeout: config.timeoutMs, maxBuffer: 10 * 1024 * 1024 },
 		);
 
 		const plan = stdout.trim();
