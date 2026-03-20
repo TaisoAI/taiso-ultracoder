@@ -128,8 +128,26 @@ uc cleanup
 uc cleanup --all
 ```
 
+## Auto-Triage Issues
+
+Enable the issue monitor to automatically assess and fix GitHub issues:
+
+```bash
+# Start monitoring (after enabling in ultracoder.yaml)
+uc monitor start
+
+# Check what's being tracked
+uc monitor status
+
+# Manually assess a specific issue
+uc monitor assess 42
+```
+
+See [Issue Monitoring](./issue-monitoring.md) for full configuration and workflow details.
+
 ## Next Steps
 
+- [Issue Monitoring](./issue-monitoring.md) — Dual-agent triage, synthesis, auto-fix pipeline
 - [Configuration Guide](./configuration.md) — Full config reference
 - [Plugins](./plugins.md) — Available plugins and how to configure them
 - [Quality Pipeline](./quality-pipeline.md) — Veracity, tool policy, and quality gates

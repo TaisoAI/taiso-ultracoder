@@ -27,6 +27,8 @@ export interface OrchestratorCallbacks {
 	runReconciler: () => Promise<{ healthy: boolean; fixes: string[] }>;
 	/** Optional: decompose a high-level task into sub-tasks */
 	decomposeTask?: (task: string) => Promise<void>;
+	/** Optional: poll for new issues and triage them */
+	pollIssues?: () => Promise<void>;
 }
 
 // ─── Orchestrator ───────────────────────────────────────────────────
@@ -115,7 +117,12 @@ export class Orchestrator {
 				}
 			}
 
-			// 4. If LLM decisions enabled, future hook for ambiguous situations
+			// 4. Poll for new issues if callback is configured
+			if (this.callbacks.pollIssues) {
+				await this.callbacks.pollIssues();
+			}
+
+			// 5. If LLM decisions enabled, future hook for ambiguous situations
 			if (this.config.enableLLMDecisions) {
 				this.logger.debug("LLM decision hook (not yet implemented)", { cycleId });
 			}

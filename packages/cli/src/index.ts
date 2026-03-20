@@ -6,6 +6,7 @@ import { doctorCommand } from "./commands/doctor.js";
 import { initCommand } from "./commands/init.js";
 import { killCommand } from "./commands/kill.js";
 import { logsCommand } from "./commands/logs.js";
+import { monitorCommand } from "./commands/monitor.js";
 import { sendCommand } from "./commands/send.js";
 import { spawnCommand } from "./commands/spawn.js";
 import { startCommand } from "./commands/start.js";
@@ -31,6 +32,7 @@ export function createProgram(): Command {
 	program.addCommand(watchCommand());
 	program.addCommand(dashboardCommand());
 	program.addCommand(logsCommand());
+	program.addCommand(monitorCommand());
 
 	return program;
 }

@@ -45,6 +45,10 @@ export function createPathResolver(projectId: string, baseDir?: string): PathRes
 		archiveDir() {
 			return path.join(projectDir, "archive");
 		},
+
+		issuesDir() {
+			return path.join(projectDir, "issues");
+		},
 	};
 }
 

@@ -116,10 +116,20 @@ export interface WorkspaceInfo {
 	isTemporary: boolean;
 }
 
+export interface TrackerListOpts {
+	state?: "open" | "closed" | "all";
+	labels?: string[];
+	assignee?: string;
+	query?: string;
+	limit?: number;
+}
+
 export interface TrackerPlugin extends Plugin<"tracker"> {
 	createIssue(opts: TrackerIssueOpts): Promise<string>;
 	updateIssue(id: string, update: Partial<TrackerIssueOpts>): Promise<void>;
 	getIssue(id: string): Promise<TrackerIssue>;
+	listIssues?(opts?: TrackerListOpts): Promise<TrackerIssue[]>;
+	addComment?(issueId: string, body: string): Promise<string>;
 }
 
 export interface TrackerIssueOpts {
@@ -257,6 +267,7 @@ export interface PathResolver {
 	sessionFile(sessionId: string): string;
 	logsDir(sessionId: string): string;
 	archiveDir(): string;
+	issuesDir(): string;
 }
 
 // ─── Helper: Map PluginSlot → Plugin Interface ──────────────────────

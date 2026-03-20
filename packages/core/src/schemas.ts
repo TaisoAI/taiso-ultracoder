@@ -107,6 +107,48 @@ export const LLMConfigSchema = z
 	})
 	.default({});
 
+// ─── Experiment Configuration ───────────────────────────────────────
+export const MetricPresetSchema = z.object({
+	command: z.string(),
+	extract: z.string(),
+	direction: z.enum(["up", "down"]),
+});
+
+export const ExperimentConfigSchema = z
+	.object({
+		presets: z.record(MetricPresetSchema).default({}),
+		mode: z.enum(["sequential", "parallel", "hybrid"]).default("sequential"),
+		parallelVariations: z.number().positive().default(3),
+		defaultMaxIterations: z.number().positive().default(20),
+		defaultMaxNoImprovement: z.number().positive().default(5),
+	})
+	.default({});
+
+// ─── Issue Monitor Configuration ───────────────────────────────────
+export const IssueFilterSchema = z
+	.object({
+		labels: z.array(z.string()).optional(),
+		excludeLabels: z.array(z.string()).optional(),
+		assignee: z.string().optional(),
+		query: z.string().optional(),
+		state: z.enum(["open", "closed", "all"]).default("open"),
+	})
+	.default({});
+
+export const IssueMonitorConfigSchema = z
+	.object({
+		enabled: z.boolean().default(false),
+		pollIntervalMs: z.number().positive().default(60_000),
+		filter: IssueFilterSchema,
+		assessorAgentPath: z.string().optional(),
+		assessorTimeoutMs: z.number().positive().default(180_000),
+		synthesizerModel: z.string().optional(),
+		maxEffort: z.enum(["trivial", "small", "medium", "large"]).optional(),
+		maxConcurrentAssessments: z.number().positive().default(2),
+		maxConcurrentSpawns: z.number().positive().default(3),
+	})
+	.default({});
+
 // ─── Project Configuration ──────────────────────────────────────────
 export const ProjectConfigSchema = z.object({
 	projectId: z.string().min(1),
@@ -123,6 +165,8 @@ export const ProjectConfigSchema = z.object({
 			basePath: z.string().optional(),
 		})
 		.default({}),
+	experiments: ExperimentConfigSchema,
+	issueMonitor: IssueMonitorConfigSchema,
 	notifications: z
 		.object({
 			desktop: z.boolean().default(true),

@@ -119,7 +119,7 @@ plugins:
       ghPath: gh  # optional
 ```
 
-**Operations:** Create issues, update issues, get issue details.
+**Operations:** Create issues, update issues, get issue details, list issues (with label/state/assignee filters), add comments.
 
 ### scm-github
 

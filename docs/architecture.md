@@ -17,7 +17,7 @@ Ultracoder synthesizes patterns from four open-source projects, following these 
 ┌─────────────────────────────────────────────────────┐
 │                    @ultracoder/cli                    │
 │  Commands: init, spawn, send, status, kill,          │
-│           cleanup, doctor                            │
+│           cleanup, doctor, monitor                   │
 └────────────────────┬────────────────────────────────┘
                      │ uses
 ┌────────────────────▼────────────────────────────────┐
@@ -26,17 +26,17 @@ Ultracoder synthesizes patterns from four open-source projects, following these 
 │  Config (Zod YAML), Paths, Logger, Utilities         │
 │  (Atomic writes, KV Store, JSONL)                    │
 └──┬────────┬────────┬────────┬───────────────────────┘
-   │        │        │        │  depended on by
-   ▼        ▼        ▼        ▼
-┌──────┐ ┌──────┐ ┌──────┐ ┌──────────┐
-│qualit│ │lifecy│ │parall│ │observabil│
-│  y   │ │  cle │ │  el  │ │   ity    │
-│      │ │      │ │      │ │          │
-│Verac.│ │13-st.│ │Scope │ │Tracing   │
-│Policy│ │React.│ │Merge │ │Cost      │
-│Gates │ │Intent│ │Recon.│ │Recovery  │
-│Review│ │Resume│ │Final.│ │          │
-└──────┘ └──────┘ └──────┘ └──────────┘
+   │        │        │        │        │  depended on by
+   ▼        ▼        ▼        ▼        ▼
+┌──────┐ ┌──────┐ ┌──────┐ ┌──────┐ ┌──────────┐
+│qualit│ │lifecy│ │parall│ │issue-│ │observabil│
+│  y   │ │  cle │ │  el  │ │monit.│ │   ity    │
+│      │ │      │ │      │ │      │ │          │
+│Verac.│ │13-st.│ │Scope │ │Dual  │ │Tracing   │
+│Policy│ │React.│ │Merge │ │Assess│ │Cost      │
+│Gates │ │Intent│ │Recon.│ │Synth.│ │Recovery  │
+│Review│ │Resume│ │Final.│ │Spawn │ │          │
+└──────┘ └──────┘ └──────┘ └──────┘ └──────────┘
                      │
           ┌──────────┼──────────┐
           ▼          ▼          ▼
@@ -69,7 +69,14 @@ Ultracoder synthesizes patterns from four open-source projects, following these 
    → ScmPlugin.getPRStatus() → { state, reviewDecision, ciStatus }
    → Lifecycle transitions: pr_open → review_pending → approved → mergeable → merged
 
-4. Quality Pipeline (per session):
+4. Issue Monitor (optional, per issue):
+   → IssueMonitor.poll() → tracker.listIssues() → new issues
+   → DualAssessor: Claude + Codex assess in parallel
+   → tracker.addComment(issueId, assessment) → posted to GitHub
+   → Synthesizer: LLM merges assessments → resolution plan
+   → Spawner: creates session with full pipeline (workspace + agent + runtime)
+
+5. Quality Pipeline (per session):
    → checkVeracityRegex(output) → hallucination findings
    → checkVeracityFilesystem(workspace) → git diff verification
    → evaluateToolPolicy(tool, args) → allow/block decision

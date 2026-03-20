@@ -21,7 +21,8 @@ describe("CLI", () => {
 		expect(commandNames).toContain("watch");
 		expect(commandNames).toContain("logs");
 		expect(commandNames).toContain("dashboard");
-		expect(commandNames).toHaveLength(13);
+		expect(commandNames).toContain("monitor");
+		expect(commandNames).toHaveLength(14);
 	});
 });
 

@@ -29,6 +29,12 @@ importers:
       '@ultracoder/core':
         specifier: workspace:*
         version: link:../core
+      '@ultracoder/experiment':
+        specifier: workspace:*
+        version: link:../experiment
+      '@ultracoder/issue-monitor':
+        specifier: workspace:*
+        version: link:../issue-monitor
       commander:
         specifier: ^12.1.0
         version: 12.1.0
@@ -42,11 +48,26 @@ importers:
         specifier: ^3.24.0
         version: 3.25.76
 
+  packages/experiment:
+    dependencies:
+      '@ultracoder/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/issue-monitor:
+    dependencies:
+      '@ultracoder/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/lifecycle:
     dependencies:
       '@ultracoder/core':
         specifier: workspace:*
         version: link:../core
+      '@ultracoder/experiment':
+        specifier: workspace:*
+        version: link:../experiment
 
   packages/observability:
     dependencies:

@@ -126,6 +126,23 @@ plugins:
     package: "@ultracoder/plugin-notifier-desktop"
     config: {}
 
+# Issue monitoring (auto-triage and fix)
+issueMonitor:
+  enabled: false               # default: false
+  pollIntervalMs: 60000        # default: 60000 (1 minute)
+  filter:
+    labels: ["bug"]            # Only monitor issues with these labels
+    excludeLabels: ["wontfix"] # Skip issues with these labels
+    state: open                # "open", "closed", or "all" — default: "open"
+    assignee: ~                # Filter by assignee (optional)
+    query: ~                   # GitHub search query (optional)
+  assessorAgentPath: claude    # Path to agent CLI for assessments — default: "claude"
+  assessorTimeoutMs: 180000    # 3 min per assessment — default: 180000
+  synthesizerModel: ~          # Model for synthesis step (optional)
+  maxEffort: medium            # Reject issues above this effort — optional
+  maxConcurrentAssessments: 2  # default: 2
+  maxConcurrentSpawns: 3       # default: 3
+
 # Workspace strategy
 workspace:
   strategy: worktree  # "worktree" or "clone" — default: "worktree"

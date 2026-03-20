@@ -40,6 +40,7 @@ export type {
 	SessionStatus,
 	TrackerIssue,
 	TrackerIssueOpts,
+	TrackerListOpts,
 	TrackerPlugin,
 	WorkspaceCreateOpts,
 	WorkspaceInfo,
@@ -51,9 +52,13 @@ export { PLUGIN_SLOTS } from "./types.js";
 // Zod schemas
 export {
 	AgentConfigSchema,
+	ExperimentConfigSchema,
 	LLMConfigSchema,
 	LLMEndpointSchema,
+	MetricPresetSchema,
 	PluginRefSchema,
+	IssueFilterSchema,
+	IssueMonitorConfigSchema,
 	ProjectConfigSchema,
 	QualityConfigSchema,
 	SessionConfigSchema,

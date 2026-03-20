@@ -7,6 +7,7 @@ Synthesizes the best patterns from [tcagent](https://github.com/TaisoAI/tcagent)
 ## What It Does
 
 - **Session management** — Spawn agents in isolated workspaces, track progress through a 13-state DevOps lifecycle, archive on completion
+- **Issue monitoring** — Poll GitHub for new issues, run dual-agent triage (Claude + Codex in parallel), synthesize a resolution plan, and spawn a fix agent — all automated
 - **Quality pipeline** — Catch hallucinated execution claims, enforce tool safety policies, run lint/test/typecheck gates, optional AI reviewer
 - **Lifecycle automation** — React to CI failures, review comments, merge conflicts, stuck agents — with configurable escalation thresholds and retry limits
 - **Parallel execution** — Decompose tasks, prevent file conflicts via scope tracking, merge results through a serial priority queue
@@ -44,6 +45,7 @@ ultracoder/
 ├── packages/
 │   ├── core/            — Types, plugin registry, session manager, config, logger, utilities
 │   ├── cli/             — Commander.js CLI (uc command)
+│   ├── issue-monitor/   — GitHub issue polling, dual-agent triage, synthesis, auto-fix spawning
 │   ├── quality/         — Veracity (regex + filesystem), tool policy (4-tier + rules engine), gates, reviewer, pipeline
 │   ├── lifecycle/       — 13-state machine, reactions with escalation, intent classifier, auto-resume
 │   ├── parallel/        — Task decomposer, scope tracker (persistent), merge queue, reconciler, finalization
@@ -94,6 +96,23 @@ Agent Output → [Veracity Regex] → [Filesystem Cross-check] → [Tool Policy]
 
 ### Quality Gates
 Auto-detects and runs `lint`, `test`, `typecheck` in parallel with 5-minute timeout per gate.
+
+## Issue Monitoring
+
+Automatically triage and fix GitHub issues with dual-agent assessment:
+
+```yaml
+issueMonitor:
+  enabled: true
+  pollIntervalMs: 60000
+  filter:
+    labels: ["bug", "uc:autofix"]
+    excludeLabels: ["wontfix", "question"]
+  maxEffort: medium
+  maxConcurrentSpawns: 3
+```
+
+When enabled, the monitor polls for new issues matching the filter, runs two independent assessments (Claude Opus 4.6 + Codex), posts both as issue comments, synthesizes a resolution plan, and spawns a coding agent to implement the fix as a PR for human review.
 
 ## Configuration
 
@@ -173,6 +192,9 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 | `uc watch <id>` | Stream live session output |
 | `uc logs <id>` | View session logs |
 | `uc dashboard` | Live terminal dashboard with session status, costs, warnings |
+| `uc monitor start` | Start polling GitHub for new issues and auto-triaging |
+| `uc monitor status` | Show monitored issues and their pipeline states |
+| `uc monitor assess <id>` | Manually trigger dual assessment for an issue |
 | `uc cleanup` | Remove old terminal sessions (default: >7 days) |
 | `uc cleanup --all` | Remove all terminal sessions |
 | `uc doctor` | Check system health and dependencies |
@@ -181,8 +203,8 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 
 ```bash
 pnpm install        # Install dependencies
-pnpm build          # Build all 16 packages
-pnpm test           # Run 434+ tests
+pnpm build          # Build all 20 packages
+pnpm test           # Run 544+ tests
 pnpm lint           # Check 107+ files with Biome
 pnpm lint:fix       # Auto-fix lint issues
 ```
@@ -198,17 +220,19 @@ pnpm lint:fix       # Auto-fix lint issues
 
 ### Monorepo Structure
 
-16 packages, 434+ tests, all managed with pnpm workspaces + Turborepo:
+20 packages, 544+ tests, all managed with pnpm workspaces + Turborepo:
 
 | Package | Tests | Description |
 |---------|-------|-------------|
-| `@ultracoder/core` | 38 | Types, schemas, plugin registry, config, session manager, paths, logger, utilities |
-| `@ultracoder/cli` | 1 | Commander.js CLI with 13 commands |
-| `@ultracoder/quality` | 68 | Veracity (regex + filesystem), tool policy (4-tier + rules engine), gates, pipeline |
-| `@ultracoder/lifecycle` | 84 | 13-state machine, reactions with escalation, intent classifier, activity detection |
-| `@ultracoder/parallel` | 9 | Scope tracker, merge queue, reconciler |
-| `@ultracoder/observability` | 4 | NDJSON tracing, cost tracking, recovery |
-| 10 plugins | 60 | Runtime, agent, workspace, tracker, SCM, notifier implementations |
+| `@ultracoder/core` | 71 | Types, schemas, plugin registry, config, session manager, paths, logger, utilities |
+| `@ultracoder/cli` | 4 | Commander.js CLI with 14 commands |
+| `@ultracoder/issue-monitor` | 37 | GitHub issue polling, dual-agent triage (Claude + Codex), synthesis, auto-fix spawning |
+| `@ultracoder/quality` | 82 | Veracity (regex + filesystem), tool policy (4-tier + rules engine), gates, pipeline |
+| `@ultracoder/lifecycle` | 152 | 13-state machine, reactions with escalation, intent classifier, activity detection |
+| `@ultracoder/parallel` | 63 | Task decomposer, scope tracker, merge queue, reconciler, finalization |
+| `@ultracoder/experiment` | 30 | Experiment runner, metric evaluation, termination checks |
+| `@ultracoder/observability` | 25 | NDJSON tracing, cost tracking, recovery |
+| 10 plugins | 80 | Runtime, agent, workspace, tracker, SCM, notifier implementations |
 
 ## Documentation
 
@@ -218,6 +242,7 @@ pnpm lint:fix       # Auto-fix lint issues
 - [Quality Pipeline](docs/quality-pipeline.md) — Veracity, tool policy, gates, reviewer
 - [Lifecycle](docs/lifecycle.md) — 13-state machine, reactions, escalation, auto-resume
 - [Parallel Execution](docs/parallel-execution.md) — Decomposition, scope tracking, merge queue
+- [Issue Monitoring](docs/issue-monitoring.md) — Dual-agent triage, synthesis, auto-fix pipeline
 - [Observability](docs/observability.md) — Tracing, cost tracking, recovery
 - [Architecture](docs/architecture.md) — Design principles, package relationships, data flow
 
