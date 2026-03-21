@@ -7,7 +7,7 @@ export {
 	checkVeracityFilesystem,
 	parseLLMVeracityOutput,
 } from "./veracity.js";
-export type { VeracityConfig, VeracityFinding } from "./veracity.js";
+export type { VeracityConfig, VeracityContext, VeracityFinding, VeracityLlmConfig } from "./veracity.js";
 
 export { evaluateToolPolicy, evaluateHeuristic } from "./tool-policy.js";
 export type {

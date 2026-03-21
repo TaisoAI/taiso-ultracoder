@@ -2,6 +2,8 @@
 
 export {
 	decomposeTask,
+	decomposeRecursive,
+	shouldDecompose,
 	parseDecompositionOutput,
 	validateScopes,
 	buildExecutionOrder,

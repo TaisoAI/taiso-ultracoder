@@ -259,3 +259,141 @@ describe("handleAutoResume with resume context", () => {
 		expect(result).toBe(false);
 	});
 });
+
+describe("handleAutoResume rate limiting", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.useFakeTimers();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it("returns false when resumeCount >= maxResumes", async () => {
+		const session = makeSession({
+			status: "failed",
+			metadata: { retryCount: 0, resumeCount: 20 },
+		});
+		const deps = makeDeps({ status: "failed", metadata: { retryCount: 0, resumeCount: 20 } });
+		setupExecFile({});
+
+		const result = await handleAutoResume(session, deps, {
+			cooldownSeconds: 0,
+			maxResumes: 20,
+		});
+
+		expect(result).toBe(false);
+		const logger = deps.logger.child({});
+		// Verify error was logged (child returns the same logger mock)
+		expect(deps.logger.child).toHaveBeenCalled();
+	});
+
+	it("returns false when within resume cooldown period", async () => {
+		const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+		const session = makeSession({
+			status: "failed",
+			metadata: { retryCount: 0, resumeCount: 1, lastResumeAt: twoMinutesAgo },
+		});
+		const deps = makeDeps({
+			status: "failed",
+			metadata: { retryCount: 0, resumeCount: 1, lastResumeAt: twoMinutesAgo },
+		});
+		setupExecFile({});
+
+		const result = await handleAutoResume(session, deps, {
+			cooldownSeconds: 0,
+			resumeCooldownMs: 300_000, // 5 minutes
+			maxResumes: 20,
+		});
+
+		expect(result).toBe(false);
+	});
+
+	it("resumes successfully when cooldown has elapsed", async () => {
+		const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+		const session = makeSession({
+			status: "failed",
+			metadata: { retryCount: 0, resumeCount: 5, lastResumeAt: tenMinutesAgo },
+		});
+		const deps = makeDeps({
+			status: "failed",
+			metadata: { retryCount: 0, resumeCount: 5, lastResumeAt: tenMinutesAgo },
+		});
+		setupExecFile({});
+
+		const promise = handleAutoResume(session, deps, {
+			cooldownSeconds: 0,
+			resumeCooldownMs: 300_000,
+			maxResumes: 20,
+		});
+		await vi.advanceTimersByTimeAsync(100);
+		const result = await promise;
+
+		expect(result).toBe(true);
+	});
+
+	it("increments resumeCount in metadata after successful resume", async () => {
+		const session = makeSession({
+			status: "failed",
+			metadata: { retryCount: 0, resumeCount: 3 },
+		});
+		const deps = makeDeps({
+			status: "failed",
+			metadata: { retryCount: 0, resumeCount: 3 },
+		});
+		setupExecFile({});
+
+		const promise = handleAutoResume(session, deps, {
+			cooldownSeconds: 0,
+			resumeCooldownMs: 0,
+			maxResumes: 20,
+		});
+		await vi.advanceTimersByTimeAsync(100);
+		await promise;
+
+		expect((deps.sessions as any).update).toHaveBeenCalledWith(
+			"sess-1",
+			expect.objectContaining({
+				status: "working",
+				metadata: expect.objectContaining({
+					retryCount: 1,
+					resumeCount: 4,
+					lastResumeAt: expect.any(String),
+				}),
+			}),
+		);
+	});
+
+	it("handles missing metadata fields gracefully (first resume)", async () => {
+		const session = makeSession({
+			status: "failed",
+			metadata: {},
+		});
+		const deps = makeDeps({
+			status: "failed",
+			metadata: {},
+		});
+		setupExecFile({});
+
+		const promise = handleAutoResume(session, deps, {
+			cooldownSeconds: 0,
+			resumeCooldownMs: 0,
+			maxResumes: 20,
+		});
+		await vi.advanceTimersByTimeAsync(100);
+		const result = await promise;
+
+		expect(result).toBe(true);
+		expect((deps.sessions as any).update).toHaveBeenCalledWith(
+			"sess-1",
+			expect.objectContaining({
+				metadata: expect.objectContaining({
+					retryCount: 1,
+					resumeCount: 1,
+					lastResumeAt: expect.any(String),
+				}),
+			}),
+		);
+	});
+});

@@ -1,8 +1,42 @@
 import type { Logger } from "@ultracoder/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// Mock child_process so we can control execFile in decomposeRecursive tests.
+// vi.hoisted ensures the mock fn is available before vi.mock's hoisted factory runs.
+const { mockExecFile } = vi.hoisted(() => {
+	const fn = vi.fn();
+	return { mockExecFile: fn };
+});
+
+vi.mock("node:child_process", async (importOriginal) => {
+	const { promisify } = await import("node:util");
+	const original = await importOriginal<typeof import("node:child_process")>();
+
+	// Attach a custom promisify implementation so that
+	// promisify(execFile) returns {stdout, stderr} like the real one.
+	(mockExecFile as any)[promisify.custom] = (...args: any[]) => {
+		return new Promise((resolve, reject) => {
+			mockExecFile(...args, (err: any, stdout: any, stderr: any) => {
+				if (err) {
+					reject(err);
+				} else {
+					resolve({ stdout, stderr });
+				}
+			});
+		});
+	};
+
+	return {
+		...original,
+		execFile: mockExecFile,
+	};
+});
+
 import {
 	buildExecutionOrder,
 	decomposeTask,
+	decomposeRecursive,
+	shouldDecompose,
 	parseDecompositionOutput,
 	validateScopes,
 } from "./decomposer.js";
@@ -261,12 +295,18 @@ describe("decomposeTask", () => {
 	});
 
 	it("falls back to single subtask on agent error", async () => {
+		// Make execFile call back with an error
+		mockExecFile.mockImplementation((_cmd: any, _args: any, _opts: any, cb?: any) => {
+			const callback = typeof _opts === "function" ? _opts : cb;
+			if (callback) callback(new Error("spawn ENOENT"), "", "");
+			return {} as any;
+		});
+
 		const result = await decomposeTask(
 			"Implement feature X",
 			{ files: ["src/a.ts", "src/b.ts"] },
 			mockLogger,
 			{
-				// Use a nonexistent binary to force an error
 				agentPath: "/nonexistent/binary/path",
 				timeoutMs: 5000,
 			},
@@ -278,5 +318,344 @@ describe("decomposeTask", () => {
 		expect(result.subtasks[0].title).toBe("Implement feature X");
 		expect(result.executionOrder).toEqual([["sub-1"]]);
 		expect(mockLogger.error).toHaveBeenCalled();
+	});
+});
+
+// ─── shouldDecompose ────────────────────────────────────────────────
+
+describe("shouldDecompose", () => {
+	it("returns false for small tasks below file threshold", () => {
+		const subtask: SubTask = {
+			id: "sub-1",
+			title: "Small task",
+			description: "A short description",
+			dependencies: [],
+			scope: ["a.ts", "b.ts"],
+			priority: 1,
+		};
+		expect(shouldDecompose(subtask, 4)).toBe(false);
+	});
+
+	it("returns true when scope exceeds fileThreshold", () => {
+		const subtask: SubTask = {
+			id: "sub-1",
+			title: "Large task",
+			description: "A short description",
+			dependencies: [],
+			scope: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"],
+			priority: 1,
+		};
+		expect(shouldDecompose(subtask, 4)).toBe(true);
+	});
+
+	it("returns true when description exceeds 500 chars", () => {
+		const subtask: SubTask = {
+			id: "sub-1",
+			title: "Verbose task",
+			description: "x".repeat(501),
+			dependencies: [],
+			scope: ["a.ts"],
+			priority: 1,
+		};
+		expect(shouldDecompose(subtask, 4)).toBe(true);
+	});
+
+	it("returns false when scope equals fileThreshold exactly", () => {
+		const subtask: SubTask = {
+			id: "sub-1",
+			title: "Borderline task",
+			description: "Short",
+			dependencies: [],
+			scope: ["a.ts", "b.ts", "c.ts", "d.ts"],
+			priority: 1,
+		};
+		expect(shouldDecompose(subtask, 4)).toBe(false);
+	});
+
+	it("returns false when description is exactly 500 chars", () => {
+		const subtask: SubTask = {
+			id: "sub-1",
+			title: "Borderline task",
+			description: "x".repeat(500),
+			dependencies: [],
+			scope: ["a.ts"],
+			priority: 1,
+		};
+		expect(shouldDecompose(subtask, 4)).toBe(false);
+	});
+});
+
+// ─── decomposeRecursive ────────────────────────────────────────────
+
+describe("decomposeRecursive", () => {
+	const mockLogger: Logger = {
+		debug: vi.fn(),
+		info: vi.fn(),
+		warn: vi.fn(),
+		error: vi.fn(),
+		child: vi.fn(() => mockLogger),
+	};
+
+	beforeEach(() => {
+		vi.restoreAllMocks();
+	});
+
+	it("single-level decomposition still works (backward compat)", async () => {
+		// Agent errors → single subtask fallback, same as decomposeTask
+		mockExecFile.mockImplementation((_cmd: any, _args: any, _opts: any, cb?: any) => {
+			const callback = typeof _opts === "function" ? _opts : cb;
+			if (callback) callback(new Error("spawn ENOENT"), "", "");
+			return {} as any;
+		});
+
+		const result = await decomposeRecursive(
+			"Simple task",
+			{ files: ["src/a.ts", "src/b.ts"] },
+			mockLogger,
+			{
+				agentPath: "/nonexistent/binary/path",
+				timeoutMs: 5000,
+			},
+		);
+
+		expect(result.parentTask).toBe("Simple task");
+		expect(result.subtasks).toHaveLength(1);
+		expect(result.subtasks[0].title).toBe("Simple task");
+		expect(result.executionOrder).toHaveLength(1);
+	});
+
+	it("recursively decomposes large subtasks", async () => {
+		let callCount = 0;
+		mockExecFile.mockImplementation((_cmd: any, _args: any, _opts: any, cb?: any) => {
+			callCount++;
+			const callback = typeof _opts === "function" ? _opts : cb;
+			if (callCount === 1) {
+				// First call: top-level decomposition returns 2 subtasks
+				// sub-1 has >4 files (should recurse), sub-2 has <=4 files (leaf)
+				const output = JSON.stringify({
+					subtasks: [
+						{
+							id: "sub-1",
+							title: "Large subtask",
+							description: "Handle many files",
+							dependencies: [],
+							scope: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"],
+							priority: 1,
+						},
+						{
+							id: "sub-2",
+							title: "Small subtask",
+							description: "Handle few files",
+							dependencies: [],
+							scope: ["f.ts"],
+							priority: 2,
+						},
+					],
+				});
+				if (callback) callback(null, output, "");
+			} else {
+				// Second call: recursive decomposition of sub-1
+				const output = JSON.stringify({
+					subtasks: [
+						{
+							id: "sub-1",
+							title: "Sub-sub A",
+							description: "Part A",
+							dependencies: [],
+							scope: ["a.ts", "b.ts"],
+							priority: 1,
+						},
+						{
+							id: "sub-2",
+							title: "Sub-sub B",
+							description: "Part B",
+							dependencies: [],
+							scope: ["c.ts", "d.ts", "e.ts"],
+							priority: 2,
+						},
+					],
+				});
+				if (callback) callback(null, output, "");
+			}
+			return {} as any;
+		});
+
+		const result = await decomposeRecursive(
+			"Big task",
+			{ files: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts", "f.ts"] },
+			mockLogger,
+			{
+				agentPath: "mock-agent",
+				maxDepth: 3,
+				fileThreshold: 4,
+			},
+		);
+
+		// Should have 3 leaf subtasks: sub-1's two children + sub-2
+		expect(result.subtasks.length).toBe(3);
+		// The sub-1 children should be prefixed
+		expect(result.subtasks.some((s) => s.id.includes("sub-1"))).toBe(true);
+		expect(result.parentTask).toBe("Big task");
+	});
+
+	it("respects maxDepth limit and stops recursing", async () => {
+		// Always return subtasks with many files (would normally trigger recursion)
+		mockExecFile.mockImplementation((_cmd: any, _args: any, _opts: any, cb?: any) => {
+			const callback = typeof _opts === "function" ? _opts : cb;
+			const output = JSON.stringify({
+				subtasks: [
+					{
+						id: "sub-1",
+						title: "Always large",
+						description: "Handle many files",
+						dependencies: [],
+						scope: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"],
+						priority: 1,
+					},
+					{
+						id: "sub-2",
+						title: "Also large",
+						description: "Handle many files too",
+						dependencies: [],
+						scope: ["f.ts", "g.ts", "h.ts", "i.ts", "j.ts"],
+						priority: 2,
+					},
+				],
+			});
+			if (callback) callback(null, output, "");
+			return {} as any;
+		});
+
+		const result = await decomposeRecursive(
+			"Deep task",
+			{ files: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts", "f.ts", "g.ts", "h.ts", "i.ts", "j.ts"] },
+			mockLogger,
+			{
+				agentPath: "mock-agent",
+				maxDepth: 2,
+				fileThreshold: 4,
+			},
+		);
+
+		// With maxDepth=2: level 0 decomposes -> 2 subtasks, level 1 each decomposes -> 2 subtasks
+		// At level 2, depth (2) is NOT < maxDepth (2), so recursion stops
+		// Total leaf subtasks: 4 (2 subtasks * 2 children each at depth 1)
+		expect(result.subtasks.length).toBe(4);
+	});
+
+	it("returns flat list of leaf subtasks only", async () => {
+		let callCount = 0;
+		mockExecFile.mockImplementation((_cmd: any, _args: any, _opts: any, cb?: any) => {
+			callCount++;
+			const callback = typeof _opts === "function" ? _opts : cb;
+			if (callCount === 1) {
+				const output = JSON.stringify({
+					subtasks: [
+						{
+							id: "sub-1",
+							title: "Parent A",
+							description: "Large parent",
+							dependencies: [],
+							scope: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"],
+							priority: 1,
+						},
+					],
+				});
+				if (callback) callback(null, output, "");
+			} else {
+				// sub-1 gets decomposed into 2 small children (leaves)
+				const output = JSON.stringify({
+					subtasks: [
+						{
+							id: "sub-1",
+							title: "Child A",
+							description: "Small child",
+							dependencies: [],
+							scope: ["a.ts", "b.ts"],
+							priority: 1,
+						},
+						{
+							id: "sub-2",
+							title: "Child B",
+							description: "Small child",
+							dependencies: [],
+							scope: ["c.ts", "d.ts", "e.ts"],
+							priority: 2,
+						},
+					],
+				});
+				if (callback) callback(null, output, "");
+			}
+			return {} as any;
+		});
+
+		const result = await decomposeRecursive(
+			"Flat check",
+			{ files: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"] },
+			mockLogger,
+			{
+				agentPath: "mock-agent",
+				maxDepth: 3,
+				fileThreshold: 4,
+			},
+		);
+
+		// Parent "sub-1" should NOT appear — only its children
+		expect(result.subtasks.every((s) => s.title !== "Parent A")).toBe(true);
+		expect(result.subtasks.length).toBe(2);
+	});
+
+	it("handles decomposition failure at deeper levels gracefully", async () => {
+		let callCount = 0;
+		mockExecFile.mockImplementation((_cmd: any, _args: any, _opts: any, cb?: any) => {
+			callCount++;
+			const callback = typeof _opts === "function" ? _opts : cb;
+			if (callCount === 1) {
+				// First call succeeds with a large subtask
+				const output = JSON.stringify({
+					subtasks: [
+						{
+							id: "sub-1",
+							title: "Large task",
+							description: "Handle many files",
+							dependencies: [],
+							scope: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts"],
+							priority: 1,
+						},
+						{
+							id: "sub-2",
+							title: "Small task",
+							description: "Few files",
+							dependencies: [],
+							scope: ["f.ts"],
+							priority: 2,
+						},
+					],
+				});
+				if (callback) callback(null, output, "");
+			} else {
+				// Recursive call fails — agent returns garbage
+				if (callback) callback(null, "not valid json at all", "");
+			}
+			return {} as any;
+		});
+
+		const result = await decomposeRecursive(
+			"Graceful fail",
+			{ files: ["a.ts", "b.ts", "c.ts", "d.ts", "e.ts", "f.ts"] },
+			mockLogger,
+			{
+				agentPath: "mock-agent",
+				maxDepth: 3,
+				fileThreshold: 4,
+			},
+		);
+
+		// sub-1 recursive decomp fails -> agent returns single-subtask fallback
+		// (decomposeTask catches parse failure and returns single subtask)
+		// sub-2 is small -> kept as leaf
+		// Result should have 2 subtasks total
+		expect(result.subtasks.length).toBe(2);
+		expect(result.parentTask).toBe("Graceful fail");
 	});
 });

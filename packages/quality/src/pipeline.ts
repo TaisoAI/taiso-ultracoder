@@ -59,7 +59,10 @@ export async function runQualityPipeline(
 	// Stage 1: Veracity checking (regex/LLM)
 	if (opts.content) {
 		try {
-			veracity = await checkVeracity(opts.content, config.veracity, logger);
+			veracity = await checkVeracity(opts.content, config.veracity, logger, {
+				task: opts.task,
+				workspacePath: opts.projectPath,
+			});
 		} catch (err) {
 			const message = err instanceof Error ? err.message : String(err);
 			errors.push(`Veracity check failed: ${message}`);

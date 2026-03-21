@@ -53,10 +53,17 @@ session:
     # Extra environment variables for the agent process
     env: {}  # default: {}
 
+    # Agent rules — inline text or file path for project-specific instructions
+    agentRules: ~          # optional: inline rules text
+    agentRulesFile: ~      # optional: path to rules file (relative to rootPath or absolute)
+
   quality:
     veracity:
       enabled: true         # default: true
       tier: regex            # "regex", "llm", or "both" — default: "regex"
+      llm:                   # LLM grounding config (used when tier is "llm" or "both")
+        agentPath: claude    # path to agent CLI — default: "claude"
+        timeoutMs: 120000    # 2 minutes — default: 120000
 
     toolPolicy:
       enabled: true          # default: true
@@ -99,6 +106,10 @@ session:
 
   # Cooldown before auto-resume (seconds)
   cooldownSeconds: 30  # default: 30
+
+  # Rate limiting for auto-resume
+  maxResumes: 20          # max total resumes before requiring manual intervention
+  resumeCooldownMs: 300000  # minimum 5 minutes between resumes
 
 # Trusted custom plugins (outside @ultracoder/* namespace)
 # By default only @ultracoder/* packages are loaded

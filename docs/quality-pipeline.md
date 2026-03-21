@@ -46,7 +46,24 @@ session:
       tier: regex    # "regex", "llm", or "both"
 ```
 
-## Stage 1b: Veracity — Filesystem Cross-check
+## Stage 1b: Veracity — LLM Grounding (Optional)
+
+When configured with `tier: "llm"` or `tier: "both"`, a second LLM call verifies whether the agent's output is grounded in reality. The grounding agent receives the task context and workspace path alongside the agent output, and returns a structured verdict with any ungrounded claims identified.
+
+```yaml
+session:
+  quality:
+    veracity:
+      enabled: true
+      tier: both          # "regex", "llm", or "both"
+      llm:
+        agentPath: claude  # path to agent CLI
+        timeoutMs: 120000  # 2 minutes
+```
+
+When `tier: "both"`, regex and LLM results are merged. LLM failures degrade gracefully — a warning is logged and the pipeline continues with regex-only results.
+
+## Stage 1c: Veracity — Filesystem Cross-check
 
 After the agent claims completion, verifies that files actually changed by running `git diff --name-only` and `git status --porcelain` in the workspace.
 

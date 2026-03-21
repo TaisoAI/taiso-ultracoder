@@ -89,9 +89,18 @@ export interface VeracityFinding {
 	severity: "info" | "warn" | "error";
 }
 
+export interface VeracityLlmConfig {
+	/** Path to the agent CLI binary. Default: "claude" */
+	agentPath?: string;
+	/** Timeout in ms. Default: 120000 (2 min) */
+	timeoutMs?: number;
+}
+
 export interface VeracityConfig {
 	enabled: boolean;
 	tier: "regex" | "llm" | "both";
+	/** Optional LLM-specific configuration */
+	llm?: VeracityLlmConfig;
 }
 
 /**
@@ -122,12 +131,22 @@ export function checkVeracityRegex(content: string): VeracityFinding[] {
 	return findings;
 }
 
-const GROUNDING_PROMPT_TEMPLATE = `You are a factual accuracy checker. Review the following text and identify any claims that are:
+export interface VeracityContext {
+	/** Description of the task the agent was performing */
+	task?: string;
+	/** Workspace path for the agent session */
+	workspacePath?: string;
+}
+
+const GROUNDING_PROMPT_TEMPLATE = `You are a factual accuracy checker. Given the task context and workspace below, review the agent output and identify any claims that are:
 - Unsubstantiated (no evidence provided)
 - Potentially hallucinated (claiming something was done without proof)
 - Factually questionable (version numbers, API details, etc.)
+- Not grounded in the task or workspace context
 
-Text to check:
+{context}
+
+Agent output to check:
 {content}
 
 For each finding, respond with one line in this format:
@@ -187,6 +206,20 @@ export function parseLLMVeracityOutput(output: string): VeracityFinding[] {
 	return findings;
 }
 
+function buildContextBlock(context?: VeracityContext): string {
+	const parts: string[] = [];
+	if (context?.task) {
+		parts.push(`Task: ${context.task}`);
+	}
+	if (context?.workspacePath) {
+		parts.push(`Workspace: ${context.workspacePath}`);
+	}
+	if (parts.length === 0) {
+		return "No additional context provided.";
+	}
+	return parts.join("\n");
+}
+
 /**
  * Tier 2: LLM-grounded veracity check.
  * Spawns an agent CLI process to verify factual claims in the content.
@@ -195,20 +228,24 @@ export async function checkVeracityLLM(
 	content: string,
 	logger: Logger,
 	config?: { agentPath?: string; timeoutMs?: number },
+	context?: VeracityContext,
 ): Promise<VeracityFinding[]> {
 	const agentPath = config?.agentPath ?? "claude";
 	const timeoutMs = config?.timeoutMs ?? 120_000;
 
-	const prompt = GROUNDING_PROMPT_TEMPLATE.replace("{content}", content);
+	const prompt = GROUNDING_PROMPT_TEMPLATE
+		.replace("{context}", buildContextBlock(context))
+		.replace("{content}", content);
 
 	try {
 		const { stdout } = await execFile(agentPath, ["-p", prompt, "--output-format", "text"], {
 			timeout: timeoutMs,
+			maxBuffer: 10 * 1024 * 1024,
 		});
 		return parseLLMVeracityOutput(stdout);
 	} catch (err: unknown) {
-		const message = err instanceof Error ? err.message : "Unknown veracity LLM error";
-		logger.warn("Veracity LLM check failed", { error: message });
+		const message = err instanceof Error ? err.message : String(err);
+		logger.warn("Veracity LLM check failed, continuing without LLM findings", { error: message });
 		return [];
 	}
 }
@@ -220,6 +257,7 @@ export async function checkVeracity(
 	content: string,
 	config: VeracityConfig,
 	logger: Logger,
+	context?: VeracityContext,
 ): Promise<VeracityFinding[]> {
 	if (!config.enabled) return [];
 
@@ -230,7 +268,7 @@ export async function checkVeracity(
 	}
 
 	if (config.tier === "llm" || config.tier === "both") {
-		findings.push(...(await checkVeracityLLM(content, logger)));
+		findings.push(...(await checkVeracityLLM(content, logger, config.llm, context)));
 	}
 
 	return findings;

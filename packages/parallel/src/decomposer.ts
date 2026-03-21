@@ -22,12 +22,14 @@ export interface DecompositionResult {
 export interface DecomposerConfig {
 	/** Path to agent CLI binary. Default: "claude" */
 	agentPath?: string;
-	/** Max recursion depth. Default: 3 */
+	/** Max recursion depth for recursive decomposition. Default: 3 */
 	maxDepth?: number;
-	/** Max subtasks per decomposition. Default: 10 */
+	/** Max subtasks per decomposition level. Default: 10 */
 	maxSubtasks?: number;
 	/** Timeout per decomposition call in ms. Default: 120000 */
 	timeoutMs?: number;
+	/** File count threshold to trigger further decomposition. Default: 4 */
+	fileThreshold?: number;
 }
 
 const DECOMPOSE_PROMPT = `You are a task decomposer. Break the following task into parallelizable subtasks.
@@ -270,4 +272,149 @@ export async function decomposeTask(
 		});
 		return singleSubtaskResult(task, projectContext.files);
 	}
+}
+
+/**
+ * Determine whether a subtask is large enough to warrant further decomposition.
+ * Returns true if the subtask's scope exceeds the file threshold or its
+ * description is longer than 500 characters.
+ */
+export function shouldDecompose(subtask: SubTask, fileThreshold: number): boolean {
+	if (subtask.scope.length > fileThreshold) {
+		return true;
+	}
+	if (subtask.description.length > 500) {
+		return true;
+	}
+	return false;
+}
+
+/**
+ * Recursively decompose a task. Large subtasks are broken down further
+ * until maxDepth is reached or subtasks are small enough.
+ *
+ * Returns a flat list of leaf-level subtasks and execution order waves.
+ */
+export async function decomposeRecursive(
+	task: string,
+	projectContext: { files: string[]; description?: string },
+	logger: Logger,
+	config?: DecomposerConfig,
+): Promise<DecompositionResult> {
+	const {
+		maxDepth = 3,
+		fileThreshold = 4,
+	} = config ?? {};
+
+	const decomposedParents = new Map<string, string[]>();
+	const leafSubtasks = await decomposeRecursiveInternal(
+		task,
+		projectContext,
+		logger,
+		config,
+		0,
+		maxDepth,
+		fileThreshold,
+		"",
+		decomposedParents,
+	);
+
+	// Remap dependencies: if a subtask depends on a parent that was decomposed,
+	// replace that dependency with all of the parent's leaf children.
+	// This ensures siblings wait for ALL children of a decomposed parent.
+	if (decomposedParents.size > 0) {
+		for (const st of leafSubtasks) {
+			st.dependencies = st.dependencies.flatMap((dep) => {
+				const children = decomposedParents.get(dep);
+				return children ?? [dep];
+			});
+		}
+	}
+
+	const executionOrder = buildExecutionOrder(leafSubtasks);
+
+	return {
+		parentTask: task,
+		subtasks: leafSubtasks,
+		executionOrder,
+	};
+}
+
+async function decomposeRecursiveInternal(
+	task: string,
+	projectContext: { files: string[]; description?: string },
+	logger: Logger,
+	config: DecomposerConfig | undefined,
+	currentDepth: number,
+	maxDepth: number,
+	fileThreshold: number,
+	idPrefix: string,
+	decomposedParents: Map<string, string[]>,
+): Promise<SubTask[]> {
+	const result = await decomposeTask(task, projectContext, logger, config);
+
+	const allLeaves: SubTask[] = [];
+
+	for (const subtask of result.subtasks) {
+		// A single subtask that equals the original task means decomposition
+		// didn't actually split the work. Only recurse if we got multiple subtasks
+		// or the single subtask is different from the parent (i.e., was refined).
+		if (result.subtasks.length === 1 && subtask.title === task) {
+			allLeaves.push(...reIdSubtasks([subtask], idPrefix));
+			continue;
+		}
+		if (shouldDecompose(subtask, fileThreshold) && currentDepth + 1 < maxDepth) {
+			logger.info("Recursively decomposing subtask", {
+				subtaskId: subtask.id,
+				depth: currentDepth + 1,
+				scopeSize: subtask.scope.length,
+			});
+
+			try {
+				const childContext = {
+					files: subtask.scope,
+					description: subtask.description,
+				};
+				const childPrefix = idPrefix ? `${idPrefix}.${subtask.id}` : subtask.id;
+				const parentId = idPrefix ? `${idPrefix}.${subtask.id}` : subtask.id;
+				const children = await decomposeRecursiveInternal(
+					subtask.description,
+					childContext,
+					logger,
+					config,
+					currentDepth + 1,
+					maxDepth,
+					fileThreshold,
+					childPrefix,
+					decomposedParents,
+				);
+				// Record this parent -> children mapping so dependents can be remapped
+				decomposedParents.set(parentId, children.map((c) => c.id));
+				allLeaves.push(...children);
+			} catch (err) {
+				// On failure at deeper levels, keep the parent subtask as-is
+				logger.warn("Recursive decomposition failed, keeping subtask as leaf", {
+					subtaskId: subtask.id,
+					error: err instanceof Error ? err.message : String(err),
+				});
+				allLeaves.push(...reIdSubtasks([subtask], idPrefix));
+			}
+		} else {
+			allLeaves.push(...reIdSubtasks([subtask], idPrefix));
+		}
+	}
+
+	return allLeaves;
+}
+
+/**
+ * Re-prefix subtask IDs to ensure uniqueness across recursive levels.
+ */
+function reIdSubtasks(subtasks: SubTask[], prefix: string): SubTask[] {
+	if (!prefix) return subtasks;
+	return subtasks.map((st) => ({
+		...st,
+		id: `${prefix}.${st.id}`,
+		dependencies: st.dependencies.map((d) => `${prefix}.${d}`),
+	}));
 }

@@ -7,6 +7,8 @@ export const AgentConfigSchema = z.object({
 	maxTokens: z.number().positive().optional(),
 	timeout: z.number().positive().default(3600),
 	env: z.record(z.string()).default({}),
+	agentRules: z.string().optional(),
+	agentRulesFile: z.string().optional(),
 });
 
 // ─── Plugin Reference ───────────────────────────────────────────────
@@ -21,6 +23,12 @@ export const QualityConfigSchema = z.object({
 		.object({
 			enabled: z.boolean().default(true),
 			tier: z.enum(["regex", "llm", "both"]).default("regex"),
+			llm: z
+				.object({
+					agentPath: z.string().default("claude"),
+					timeoutMs: z.number().positive().default(120_000),
+				})
+				.optional(),
 		})
 		.default({}),
 	toolPolicy: z
@@ -73,6 +81,8 @@ export const SessionConfigSchema = z.object({
 	maxConcurrentSessions: z.number().positive().default(10),
 	autoResume: z.boolean().default(true),
 	cooldownSeconds: z.number().nonnegative().default(30),
+	maxResumes: z.number().nonnegative().default(20),
+	resumeCooldownMs: z.number().nonnegative().default(300_000),
 	reactions: ReactionConfigSchema,
 });
 
@@ -115,6 +125,13 @@ export const MetricPresetSchema = z.object({
 	direction: z.enum(["up", "down"]),
 });
 
+export const SecondaryMetricSchema = z.object({
+	name: z.string(),
+	command: z.string(),
+	extract: z.string(),
+	direction: z.enum(["up", "down"]).optional(),
+});
+
 export const ExperimentConfigSchema = z
 	.object({
 		presets: z.record(MetricPresetSchema).default({}),
@@ -122,6 +139,7 @@ export const ExperimentConfigSchema = z
 		parallelVariations: z.number().positive().default(3),
 		defaultMaxIterations: z.number().positive().default(20),
 		defaultMaxNoImprovement: z.number().positive().default(5),
+		secondaryMetrics: z.array(SecondaryMetricSchema).default([]),
 	})
 	.default({});
 

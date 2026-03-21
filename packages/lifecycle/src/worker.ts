@@ -304,7 +304,13 @@ export class LifecycleWorker {
 			case "resume": {
 				// Attempt auto-resume for stuck sessions
 				const { handleAutoResume } = await import("./auto-resume.js");
-				const resumed = await handleAutoResume(session, this.deps);
+				const sessionConfig = this.deps.config.session;
+				const resumed = await handleAutoResume(session, this.deps, {
+					enabled: sessionConfig.autoResume,
+					cooldownSeconds: sessionConfig.cooldownSeconds,
+					maxResumes: sessionConfig.maxResumes ?? 20,
+					resumeCooldownMs: sessionConfig.resumeCooldownMs ?? 300_000,
+				});
 				if (!resumed) {
 					this.logger.info("Auto-resume failed, requires manual handling", {
 						sessionId: session.id,

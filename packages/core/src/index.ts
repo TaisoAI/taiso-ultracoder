@@ -99,6 +99,10 @@ export type { StorageBackend, SessionManagerFactoryOpts } from "./session-manage
 export { Orchestrator } from "./orchestrator.js";
 export type { OrchestratorConfig, OrchestratorCallbacks } from "./orchestrator.js";
 
+// Prompt builder
+export { buildPrompt } from "./prompt-builder.js";
+export type { PromptContext } from "./prompt-builder.js";
+
 // Spawn pipeline
 export { runSpawnPipeline } from "./spawn-pipeline.js";
 export type { SpawnPipelineOpts, SpawnPipelineResult } from "./spawn-pipeline.js";

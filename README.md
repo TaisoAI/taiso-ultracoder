@@ -8,9 +8,10 @@ Synthesizes the best patterns from [tcagent](https://github.com/TaisoAI/tcagent)
 
 - **Session management** — Spawn agents in isolated workspaces via a shared pipeline, track progress through a 13-state DevOps lifecycle with state-machine-enforced transitions, archive on completion
 - **Issue monitoring** — Poll GitHub for new issues, run dual-agent triage (Claude + Codex in parallel), synthesize a resolution plan, and spawn a fix agent — all automated
-- **Quality pipeline** — Catch hallucinated execution claims, enforce tool safety policies, run lint/test/typecheck gates, optional AI reviewer
-- **Lifecycle automation** — React to CI failures, review comments, merge conflicts, stuck agents — with configurable escalation thresholds and retry limits
-- **Parallel execution** — Decompose tasks, prevent file conflicts via scope tracking, merge results through a serial priority queue
+- **Quality pipeline** — Catch hallucinated execution claims (regex + LLM grounding), enforce tool safety policies, run lint/test/typecheck gates, optional AI reviewer
+- **Lifecycle automation** — React to CI failures, review comments, merge conflicts, stuck agents — with configurable escalation thresholds, retry limits, and rate-limited auto-resume
+- **Parallel execution** — Recursive task decomposition (up to 3 levels), prevent file conflicts via scope tracking, merge results through a serial priority queue
+- **Layered prompt builder** — Enriches raw tasks with project context, git workflow instructions, and user-defined agent rules before passing to the agent
 - **Concurrency control** — Configurable `maxConcurrentSessions` limit enforced at the spawn pipeline, with input validation on all issue/PR IDs
 - **Deep agent integration** — Version-pinned parser for Claude Code's stream-json output with tool_use event extraction and lightweight intent classification
 - **Observability** — Structured NDJSON tracing, per-session cost tracking with configurable pricing, automated recovery
@@ -206,7 +207,7 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 ```bash
 pnpm install        # Install dependencies
 pnpm build          # Build all 20 packages
-pnpm test           # Run 680+ tests across 38 suites
+pnpm test           # Run 765+ tests across 38 suites
 pnpm lint           # Check 107+ files with Biome
 pnpm lint:fix       # Auto-fix lint issues
 ```
@@ -222,17 +223,17 @@ pnpm lint:fix       # Auto-fix lint issues
 
 ### Monorepo Structure
 
-20 packages, 680+ tests, all managed with pnpm workspaces + Turborepo:
+20 packages, 765+ tests, all managed with pnpm workspaces + Turborepo:
 
 | Package | Tests | Description |
 |---------|-------|-------------|
-| `@ultracoder/core` | 131 | Types, schemas, state machine, spawn pipeline, plugin registry, config, session manager, paths, logger, utilities |
+| `@ultracoder/core` | 139 | Types, schemas, state machine, spawn pipeline, prompt builder, plugin registry, config, session manager, paths, logger, utilities |
 | `@ultracoder/cli` | 4 | Commander.js CLI with 14 commands |
-| `@ultracoder/issue-monitor` | 42 | GitHub issue polling, dual-agent triage (Claude + Codex), synthesis, auto-fix spawning |
-| `@ultracoder/quality` | 101 | Veracity (regex + filesystem), tool policy (4-tier + rules engine), gates, pipeline |
-| `@ultracoder/lifecycle` | 151 | 13-state machine, reactions with escalation, intent classifier, activity detection |
-| `@ultracoder/parallel` | 63 | Task decomposer, scope tracker, merge queue, reconciler, finalization |
-| `@ultracoder/experiment` | 30 | Experiment runner, metric evaluation, termination checks |
+| `@ultracoder/issue-monitor` | 69 | GitHub issue polling, dual-agent triage (Claude + Codex), synthesis, auto-fix spawning |
+| `@ultracoder/quality` | 110 | Veracity (regex + LLM + filesystem), tool policy (4-tier + rules engine), gates, pipeline |
+| `@ultracoder/lifecycle` | 156 | 13-state machine, reactions with escalation, intent classifier, activity detection, rate-limited auto-resume |
+| `@ultracoder/parallel` | 73 | Recursive task decomposer, scope tracker, merge queue, reconciler, finalization |
+| `@ultracoder/experiment` | 54 | Experiment runner, metric evaluation, MAD-based confidence scoring, secondary metrics, termination checks |
 | `@ultracoder/observability` | 25 | NDJSON tracing, cost tracking, recovery |
 | 10 plugins | 135 | Runtime, agent, workspace, tracker, SCM, notifier implementations |
 

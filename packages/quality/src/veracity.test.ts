@@ -5,6 +5,7 @@ import * as path from "node:path";
 import type { Logger } from "@ultracoder/core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+	checkVeracity,
 	checkVeracityFilesystem,
 	checkVeracityLLM,
 	checkVeracityRegex,
@@ -374,13 +375,194 @@ function makeLogger(): Logger {
 }
 
 describe("checkVeracityLLM", () => {
-	it("returns empty array on agent error", async () => {
+	let scriptDir: string;
+
+	/** Create a shell script that outputs the contents of a file to stdout. */
+	function makeAgentScript(stdout: string): string {
+		const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+		const dataPath = path.join(scriptDir, `data-${id}.txt`);
+		const scriptPath = path.join(scriptDir, `agent-${id}.sh`);
+		fs.writeFileSync(dataPath, stdout);
+		fs.writeFileSync(scriptPath, `#!/bin/sh\ncat ${JSON.stringify(dataPath)}\n`, { mode: 0o755 });
+		return scriptPath;
+	}
+
+	/** Create a shell script that exits with an error. */
+	function makeFailingScript(): string {
+		const scriptPath = path.join(scriptDir, `fail-${Date.now()}.sh`);
+		fs.writeFileSync(scriptPath, "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+		return scriptPath;
+	}
+
+	beforeEach(() => {
+		scriptDir = fs.mkdtempSync(path.join(os.tmpdir(), "veracity-llm-test-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(scriptDir, { recursive: true, force: true });
+	});
+
+	it("returns empty array on agent error (graceful degradation)", async () => {
 		const logger = makeLogger();
 		const findings = await checkVeracityLLM("some content", logger, {
 			agentPath: "/nonexistent/binary",
 			timeoutMs: 5000,
 		});
 		expect(findings).toHaveLength(0);
+		expect(logger.warn).toHaveBeenCalled();
+	});
+
+	it("returns findings for ungrounded claims", async () => {
+		const stdout = [
+			'FINDING:warn:3:Claims "all tests pass" but no test output provided',
+			"FINDING:error:7:References non-existent API endpoint /api/v3/sync",
+		].join("\n");
+		const agentPath = makeAgentScript(stdout);
+
+		const logger = makeLogger();
+		const findings = await checkVeracityLLM("some agent output", logger, { agentPath });
+
+		expect(findings).toHaveLength(2);
+		expect(findings[0]).toEqual({
+			tier: "llm",
+			message: 'Claims "all tests pass" but no test output provided',
+			line: 3,
+			severity: "warn",
+		});
+		expect(findings[1]).toEqual({
+			tier: "llm",
+			message: "References non-existent API endpoint /api/v3/sync",
+			line: 7,
+			severity: "error",
+		});
+	});
+
+	it("returns empty array for grounded output (NO_ISSUES)", async () => {
+		const agentPath = makeAgentScript("NO_ISSUES");
+
+		const logger = makeLogger();
+		const findings = await checkVeracityLLM("const x = 1;", logger, { agentPath });
+		expect(findings).toHaveLength(0);
+		expect(logger.warn).not.toHaveBeenCalled();
+	});
+
+	it("passes context (task and workspace) into the prompt", async () => {
+		// Script that writes its second argument (the prompt after -p) to a file, then outputs NO_ISSUES
+		const capturedPromptPath = path.join(scriptDir, "captured-prompt.txt");
+		const scriptPath = path.join(scriptDir, "echo-prompt.sh");
+		fs.writeFileSync(
+			scriptPath,
+			`#!/bin/sh\nprintf '%s' "$2" > ${JSON.stringify(capturedPromptPath)}\necho NO_ISSUES\n`,
+			{ mode: 0o755 },
+		);
+
+		const logger = makeLogger();
+		await checkVeracityLLM("output text", logger, { agentPath: scriptPath }, {
+			task: "Fix the login bug",
+			workspacePath: "/tmp/workspace",
+		});
+
+		const capturedPrompt = fs.readFileSync(capturedPromptPath, "utf-8");
+		expect(capturedPrompt).toContain("Fix the login bug");
+		expect(capturedPrompt).toContain("/tmp/workspace");
+		expect(logger.warn).not.toHaveBeenCalled();
+	});
+
+	it("gracefully degrades when LLM call fails (warn + continue)", async () => {
+		const agentPath = makeFailingScript();
+
+		const logger = makeLogger();
+		const findings = await checkVeracityLLM("content", logger, { agentPath });
+
+		expect(findings).toHaveLength(0);
+		expect(logger.warn).toHaveBeenCalledWith(
+			"Veracity LLM check failed, continuing without LLM findings",
+			expect.objectContaining({ error: expect.any(String) }),
+		);
+	});
+});
+
+describe("checkVeracity (orchestrator)", () => {
+	let scriptDir: string;
+
+	function makeAgentScript(stdout: string): string {
+		const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+		const dataPath = path.join(scriptDir, `data-${id}.txt`);
+		const scriptPath = path.join(scriptDir, `agent-${id}.sh`);
+		fs.writeFileSync(dataPath, stdout);
+		fs.writeFileSync(scriptPath, `#!/bin/sh\ncat ${JSON.stringify(dataPath)}\n`, { mode: 0o755 });
+		return scriptPath;
+	}
+
+	beforeEach(() => {
+		scriptDir = fs.mkdtempSync(path.join(os.tmpdir(), "veracity-orch-test-"));
+	});
+
+	afterEach(() => {
+		fs.rmSync(scriptDir, { recursive: true, force: true });
+	});
+
+	it("returns empty when disabled", async () => {
+		const logger = makeLogger();
+		const findings = await checkVeracity("I've created the file", { enabled: false, tier: "both" }, logger);
+		expect(findings).toHaveLength(0);
+	});
+
+	it("runs regex only for tier 'regex'", async () => {
+		const logger = makeLogger();
+		const findings = await checkVeracity(
+			"I've created a new file",
+			{ enabled: true, tier: "regex" },
+			logger,
+		);
+		expect(findings.length).toBeGreaterThan(0);
+		expect(findings.every((f) => f.tier === "regex")).toBe(true);
+	});
+
+	it("runs LLM only for tier 'llm' (returns only LLM findings)", async () => {
+		const agentPath = makeAgentScript("FINDING:warn:1:Unverified claim about deployment");
+
+		const logger = makeLogger();
+		const findings = await checkVeracity(
+			"I've created a new file",
+			{ enabled: true, tier: "llm", llm: { agentPath } },
+			logger,
+		);
+
+		// Should only have LLM findings, no regex findings
+		expect(findings.length).toBeGreaterThan(0);
+		expect(findings.every((f) => f.tier === "llm")).toBe(true);
+	});
+
+	it("'both' tier merges regex and LLM results", async () => {
+		const agentPath = makeAgentScript("FINDING:error:1:LLM detected fabricated reference");
+
+		const logger = makeLogger();
+		const findings = await checkVeracity(
+			"I've created a new file",
+			{ enabled: true, tier: "both", llm: { agentPath } },
+			logger,
+		);
+
+		const regexFindings = findings.filter((f) => f.tier === "regex");
+		const llmFindings = findings.filter((f) => f.tier === "llm");
+
+		expect(regexFindings.length).toBeGreaterThan(0);
+		expect(llmFindings.length).toBeGreaterThan(0);
+		expect(findings.length).toBe(regexFindings.length + llmFindings.length);
+	});
+
+	it("'both' tier still returns regex findings when LLM fails", async () => {
+		const logger = makeLogger();
+		const findings = await checkVeracity(
+			"I've created a new file",
+			{ enabled: true, tier: "both", llm: { agentPath: "/nonexistent/binary" } },
+			logger,
+		);
+
+		// Regex findings should still be present even though LLM failed
+		expect(findings.length).toBeGreaterThan(0);
+		expect(findings.every((f) => f.tier === "regex")).toBe(true);
 		expect(logger.warn).toHaveBeenCalled();
 	});
 });

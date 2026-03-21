@@ -7,6 +7,7 @@ import type {
 	Session,
 	WorkspacePlugin,
 } from "./types.js";
+import { buildPrompt } from "./prompt-builder.js";
 
 export interface SpawnPipelineOpts {
 	session: Session;
@@ -88,8 +89,21 @@ export async function runSpawnPipeline(
 
 	let cmd: { command: string; args: string[] };
 	try {
-		cmd = agent.buildCommand({
+		const enrichedTask = buildPrompt({
 			task,
+			projectId: deps.config.projectId,
+			rootPath: deps.config.rootPath,
+			defaultBranch: deps.config.defaultBranch,
+			branch: session.branch,
+			agentType: session.agentType,
+			sessionId: session.id,
+			agentRules: deps.config.session.agent.agentRules,
+			agentRulesFile: deps.config.session.agent.agentRulesFile,
+			metadata: session.metadata,
+		});
+
+		cmd = agent.buildCommand({
+			task: enrichedTask,
 			workspacePath,
 			config: deps.config.session.agent,
 		});

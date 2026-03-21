@@ -10,12 +10,18 @@ export interface AutoResumeConfig {
 	enabled: boolean;
 	cooldownSeconds: number;
 	maxRetries: number;
+	/** Minimum time between resumes in ms (default 5 minutes). */
+	resumeCooldownMs: number;
+	/** Maximum total resumes before requiring manual intervention (default 20). */
+	maxResumes: number;
 }
 
 const DEFAULT_CONFIG: AutoResumeConfig = {
 	enabled: true,
 	cooldownSeconds: 30,
 	maxRetries: 3,
+	resumeCooldownMs: 300_000,
+	maxResumes: 20,
 };
 
 export interface ResumeContext {
@@ -145,6 +151,31 @@ export async function handleAutoResume(
 		return false;
 	}
 
+	// ── Rate limiting: max total resumes ────────────────────────────
+	const resumeCount =
+		typeof session.metadata.resumeCount === "number" && Number.isFinite(session.metadata.resumeCount)
+			? session.metadata.resumeCount
+			: 0;
+	if (resumeCount >= cfg.maxResumes) {
+		logger.error("Max total resumes exceeded — manual intervention required", {
+			resumeCount,
+			maxResumes: cfg.maxResumes,
+		});
+		return false;
+	}
+
+	// ── Rate limiting: cooldown between resumes ─────────────────────
+	if (typeof session.metadata.lastResumeAt === "string" && session.metadata.lastResumeAt) {
+		const elapsed = Date.now() - new Date(session.metadata.lastResumeAt).getTime();
+		if (elapsed < cfg.resumeCooldownMs) {
+			logger.warn("Resume cooldown active — too soon since last resume", {
+				elapsedMs: elapsed,
+				resumeCooldownMs: cfg.resumeCooldownMs,
+			});
+			return false;
+		}
+	}
+
 	const retryCount =
 		typeof session.metadata.retryCount === "number" && Number.isFinite(session.metadata.retryCount)
 			? session.metadata.retryCount
@@ -206,12 +237,18 @@ export async function handleAutoResume(
 		}
 	}
 
-	// Update session with incremented retry count and resume context
+	const freshResumeCount =
+		typeof fresh.metadata.resumeCount === "number" && Number.isFinite(fresh.metadata.resumeCount)
+			? fresh.metadata.resumeCount
+			: 0;
+
+	// Update session with incremented retry count, resume count, and resume context
 	await deps.sessions.update(session.id, {
 		status: "working",
 		metadata: {
 			...fresh.metadata,
 			retryCount: freshRetryCount + 1,
+			resumeCount: freshResumeCount + 1,
 			lastResumeAt: new Date().toISOString(),
 			resumeContext: resumeContext ?? undefined,
 		},
