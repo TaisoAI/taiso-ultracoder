@@ -58,14 +58,14 @@ ultracoder/
 │   ├── parallel/        — Recursive decomposer, re-planner, conflict resolver, scope tracker, merge queue, reconciler
 │   ├── experiment/      — Optimization loop, metric runner, confidence scoring, secondary metrics, termination
 │   ├── observability/   — NDJSON tracing, cost tracking, recovery system
-│   └── plugins/         — 10 plugins across 7 slots
+│   └── plugins/         — 11 plugins across 7 slots
 ```
 
 ### Plugin Slots (7)
 
 | Slot | Implementations | Purpose |
 |------|----------------|---------|
-| runtime | tmux, process | Spawn and manage agent processes |
+| runtime | tmux, process, docker | Spawn and manage agent processes (Docker adds filesystem/network isolation) |
 | agent | claude-code, codex | Build CLI commands, parse agent output streams |
 | workspace | worktree, clone | Create isolated workspaces per session |
 | tracker | github | Issue tracking via `gh` CLI |
@@ -173,6 +173,13 @@ workspace:
 plugins:
   runtime:
     package: "@ultracoder/plugin-runtime-tmux"
+    # Or use Docker for sandboxed execution:
+    # package: "@ultracoder/plugin-runtime-docker"
+    # config:
+    #   image: node:22-slim
+    #   network: none         # "none", "bridge", or custom network
+    #   memoryMb: 2048
+    #   cpus: 2
   agent:
     package: "@ultracoder/plugin-agent-claude-code"
   workspace:
@@ -231,7 +238,7 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 ```bash
 pnpm install        # Install dependencies
 pnpm build          # Build all 21 packages
-pnpm test           # Run 840+ tests across 40 suites
+pnpm test           # Run 860+ tests across 42 suites
 pnpm lint           # Check 107+ files with Biome
 pnpm lint:fix       # Auto-fix lint issues
 ```
@@ -260,7 +267,7 @@ pnpm lint:fix       # Auto-fix lint issues
 | `@ultracoder/parallel` | 87 | Recursive task decomposer, re-planner, conflict resolver, scope tracker, merge queue, reconciler, finalization |
 | `@ultracoder/experiment` | 54 | Experiment runner, metric evaluation, MAD-based confidence scoring, secondary metrics, termination checks |
 | `@ultracoder/observability` | 25 | NDJSON tracing, cost tracking, recovery |
-| 10 plugins | 135 | Runtime, agent, workspace, tracker, SCM, notifier implementations |
+| 11 plugins | 156 | Runtime (tmux, process, docker), agent, workspace, tracker, SCM, notifier implementations |
 
 ## Documentation
 

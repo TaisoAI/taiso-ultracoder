@@ -121,6 +121,14 @@ plugins:
     package: "@ultracoder/plugin-runtime-tmux"
     config:
       tmuxPath: tmux  # path to tmux binary
+    # Alternative: Docker runtime for sandboxed execution
+    # package: "@ultracoder/plugin-runtime-docker"
+    # config:
+    #   image: node:22-slim          # Docker image — default: "node:22-slim"
+    #   network: none                # "none", "bridge", or custom — default: "none"
+    #   memoryMb: 2048               # Memory limit — default: 2048
+    #   cpus: 2                      # CPU limit — default: 2
+    #   workspaceMountPath: /workspace  # Mount point — default: "/workspace"
 
   agent:
     package: "@ultracoder/plugin-agent-claude-code"

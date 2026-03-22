@@ -6,7 +6,7 @@ Ultracoder uses a 7-slot plugin architecture. Each slot serves a specific role, 
 
 | Slot | Purpose | Available Plugins |
 |------|---------|-------------------|
-| `runtime` | Spawn and manage agent processes | `runtime-tmux`, `runtime-process` |
+| `runtime` | Spawn and manage agent processes | `runtime-tmux`, `runtime-process`, `runtime-docker` |
 | `agent` | Build agent CLI commands, parse output | `agent-claude-code`, `agent-codex` |
 | `workspace` | Create isolated workspaces | `workspace-worktree`, `workspace-clone` |
 | `tracker` | Issue tracking | `tracker-github` |
@@ -44,6 +44,34 @@ plugins:
 ```
 
 No external dependencies required.
+
+### runtime-docker
+
+Spawns agents in Docker containers with filesystem isolation, network control, and resource limits. The most secure runtime option.
+
+```yaml
+plugins:
+  runtime:
+    package: "@ultracoder/plugin-runtime-docker"
+    config:
+      image: node:22-slim          # Docker image (default: "node:22-slim")
+      network: none                # "none", "bridge", or custom network (default: "none")
+      memoryMb: 2048               # Memory limit in MB (default: 2048)
+      cpus: 2                      # CPU limit (default: 2)
+      workspaceMountPath: /workspace  # Mount point inside container (default: "/workspace")
+      extraBinds: []               # Additional bind mounts (e.g., ["/host/data:/data"])
+      user: "1000:1000"            # Container user (default: host UID:GID on Linux)
+      stopTimeoutSeconds: 10       # Timeout for graceful stop (default: 10)
+```
+
+**Requirements:** Docker installed and running (Docker Desktop on macOS, Docker Engine on Linux).
+
+**Isolation features:**
+- **Filesystem:** Only the workspace directory is bind-mounted. All other host paths are inaccessible.
+- **Network:** `network: none` blocks all outbound connections. The agent works on mounted code; the host handles git push/PR creation.
+- **Credentials:** API keys passed as env vars cannot be exfiltrated with `network: none`.
+- **Resources:** Memory and CPU limits prevent runaway agents from consuming host resources.
+- **User:** Defaults to host user's UID:GID on Linux to avoid root-owned files in the workspace.
 
 ## Agent Plugins
 

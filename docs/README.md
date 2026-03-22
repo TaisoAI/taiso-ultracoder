@@ -22,7 +22,7 @@
 
 | Document | Description |
 |----------|-------------|
-| [Plugins](./plugins.md) | All 10 plugins across 7 slots, configuration examples, custom plugin authoring guide |
+| [Plugins](./plugins.md) | All 11 plugins across 7 slots, configuration examples, custom plugin authoring guide |
 
 ## Quick Links
 
