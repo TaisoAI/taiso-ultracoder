@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { RuntimeSpawnOpts } from "@ultracoder/core";
 
+const mockStream = {
+	write: vi.fn(),
+	end: vi.fn(),
+};
+
 const mockContainer = {
 	id: "abc123",
 	start: vi.fn().mockResolvedValue(undefined),
@@ -9,9 +14,7 @@ const mockContainer = {
 	inspect: vi
 		.fn()
 		.mockResolvedValue({ State: { Running: true, Pid: 12345 } }),
-	exec: vi
-		.fn()
-		.mockResolvedValue({ start: vi.fn().mockResolvedValue(undefined) }),
+	attach: vi.fn().mockResolvedValue(mockStream),
 };
 
 const mockDocker = {
@@ -41,9 +44,9 @@ describe("runtime-docker", () => {
 		mockContainer.inspect.mockResolvedValue({
 			State: { Running: true, Pid: 12345 },
 		});
-		mockContainer.exec.mockResolvedValue({
-			start: vi.fn().mockResolvedValue(undefined),
-		});
+		mockContainer.attach.mockResolvedValue(mockStream);
+		mockStream.write.mockClear();
+		mockStream.end.mockClear();
 		mockDocker.createContainer.mockResolvedValue(mockContainer);
 		mockDocker.getContainer.mockReturnValue(mockContainer);
 	});
@@ -132,7 +135,7 @@ describe("runtime-docker", () => {
 		expect(alive).toBe(false);
 	});
 
-	it("isAlive returns false when container not found", async () => {
+	it("isAlive returns false when container not found (404)", async () => {
 		mockDocker.getContainer.mockReturnValue({
 			inspect: vi.fn().mockRejectedValue(new Error("no such container")),
 		});
@@ -140,6 +143,16 @@ describe("runtime-docker", () => {
 		const alive = await plugin.isAlive({ id: "gone" });
 
 		expect(alive).toBe(false);
+	});
+
+	it("isAlive re-throws transient Docker errors", async () => {
+		mockDocker.getContainer.mockReturnValue({
+			inspect: vi.fn().mockRejectedValue(new Error("Docker socket connection refused")),
+		});
+		const plugin = create();
+		await expect(plugin.isAlive({ id: "abc123" })).rejects.toThrow(
+			"Docker socket connection refused",
+		);
 	});
 
 	it("spawn merges env vars from opts and config", async () => {
@@ -189,16 +202,37 @@ describe("runtime-docker", () => {
 		);
 	});
 
-	it("sendInput executes command in container", async () => {
+	it("spawn cleans up container when start fails", async () => {
+		mockContainer.start.mockRejectedValue(new Error("start failed"));
+		const plugin = create();
+		await expect(plugin.spawn(defaultOpts)).rejects.toThrow(
+			"Failed to start Docker container: start failed",
+		);
+		expect(mockContainer.remove).toHaveBeenCalledWith({ force: true });
+	});
+
+	it("spawn cleans up container when inspect fails after start", async () => {
+		mockContainer.inspect.mockRejectedValue(new Error("inspect failed"));
+		const plugin = create();
+		await expect(plugin.spawn(defaultOpts)).rejects.toThrow(
+			"Failed to start Docker container: inspect failed",
+		);
+		expect(mockContainer.remove).toHaveBeenCalledWith({ force: true });
+	});
+
+	it("sendInput attaches to container stdin", async () => {
 		const plugin = create();
 		await plugin.sendInput({ id: "abc123" }, "hello world");
 
-		expect(mockContainer.exec).toHaveBeenCalledWith(
+		expect(mockContainer.attach).toHaveBeenCalledWith(
 			expect.objectContaining({
-				Cmd: ["sh", "-c", expect.stringContaining("hello world")],
-				AttachStdout: true,
+				stream: true,
+				stdin: true,
+				hijack: true,
 			}),
 		);
+		expect(mockStream.write).toHaveBeenCalledWith("hello world\n");
+		expect(mockStream.end).toHaveBeenCalled();
 	});
 
 	it("extra bind mounts are included", async () => {
@@ -212,5 +246,13 @@ describe("runtime-docker", () => {
 		expect(call.HostConfig.Binds).toContain(
 			"/home/user/project:/workspace",
 		);
+	});
+
+	it("custom user is set when configured", async () => {
+		const plugin = create({ user: "1000:1000" });
+		await plugin.spawn(defaultOpts);
+
+		const call = mockDocker.createContainer.mock.calls[0][0];
+		expect(call.User).toBe("1000:1000");
 	});
 });
