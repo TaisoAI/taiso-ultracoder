@@ -4,12 +4,14 @@ Run multiple agents simultaneously on related tasks without merge conflicts.
 
 ## Overview
 
-The parallel execution system has four components:
+The parallel execution system has six components:
 
-1. **Task Decomposer** — Breaks large tasks into parallelizable subtasks
+1. **Task Decomposer** — Breaks large tasks into parallelizable subtasks (recursive, up to 3 levels)
 2. **Scope Tracker** — Prevents file ownership conflicts
 3. **Merge Queue** — Serializes branch merges with retry logic
 4. **Reconciler** — Health sweeps and corrective actions
+5. **Re-planner** — Iterates after handoff reports: re-decomposes when tasks fail or partially complete
+6. **Conflict Resolver** — Auto-generates fix tasks when merge conflicts cannot be resolved by retry
 
 ## Task Decomposition
 
@@ -109,6 +111,47 @@ It suggests corrective actions based on detected issues:
 - Merge conflicts → pause and notify
 - Crashes → restart session
 - Resource exhaustion → scale down parallel sessions
+
+## Iterative Re-planning
+
+After subtasks complete, the re-planner evaluates handoff reports and triggers re-decomposition when needed.
+
+**Triggers for re-planning:**
+- Any subtask has `status: "failed"` or `status: "partial"`
+- Completed subtasks have non-empty `concerns` arrays
+
+When triggered, `replan()` builds an enriched prompt containing completed and failed work summaries, then calls the decomposer to generate new subtasks for the remaining work.
+
+```typescript
+import { shouldReplan, replan } from "@ultracoder/parallel";
+
+const decision = shouldReplan(handoffs);
+if (decision.shouldReplan) {
+  const result = await replan(originalTask, completed, failed, projectContext, logger);
+  // result.newTasks contains the re-decomposed subtasks
+}
+```
+
+## Conflict Resolution
+
+When merge retries are exhausted, the conflict resolver identifies conflicting files and generates a targeted fix task.
+
+```typescript
+import { generateConflictTask } from "@ultracoder/parallel";
+
+const task = await generateConflictTask({
+  branch: "uc-sess-123",
+  targetBranch: "main",
+  sessionId: "sess-123",
+  originalTask: "Fix the login bug",
+  cwd: "/path/to/repo",
+  logger,
+});
+// task.conflictFiles = ["src/auth.ts", "src/middleware.ts"]
+// task.task = "Resolve merge conflicts in src/auth.ts, src/middleware.ts..."
+```
+
+The resolver uses `git merge-tree` for read-only conflict detection (no working tree modifications), falling back to `git merge --no-commit` + abort when needed.
 
 ## Best Practices
 

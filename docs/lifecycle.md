@@ -185,6 +185,41 @@ const summary = await detectActivity(logPath);
 // summary.intent = { intent: "implementing", confidence: 0.8, evidence: "6/10 events are Write/Edit" }
 ```
 
+## Question Detection & Auto-Answer
+
+The lifecycle package detects when an agent asks a question instead of working, and can auto-answer procedural questions from context.
+
+### Detection
+
+`detectQuestion()` uses regex patterns to identify common question forms:
+- "should I", "do you want", "which approach", "I need clarification"
+- "would you like me to", "shall I", "do you prefer", "can you confirm"
+- Trailing `?` on substantial text (>20 chars) at lower confidence
+
+Each pattern has a confidence score (0.5–0.9). Higher confidence indicates a more explicit question.
+
+### Auto-Answer
+
+`tryAutoAnswer()` spawns a short-lived agent CLI call with the question + task context. The agent either provides a concise answer or responds with "ESCALATE" for questions requiring human judgment.
+
+```typescript
+import { detectQuestion, tryAutoAnswer } from "@ultracoder/lifecycle";
+
+const detection = detectQuestion(agentOutput);
+if (detection.isQuestion) {
+  const result = await tryAutoAnswer({
+    question: detection.questionText,
+    taskContext: session.task,
+    logger,
+  });
+  if (result.answered) {
+    await runtime.sendInput(handle, result.answer!);
+  } else {
+    // Escalate to human
+  }
+}
+```
+
 ## Auto-Resume
 
 When an agent hits context window limits or crashes, auto-resume handles recovery:

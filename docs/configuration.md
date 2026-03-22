@@ -173,6 +173,18 @@ notifications:
   slack:
     enabled: false
     webhook: ~  # Slack webhook URL
+  routing:                              # Priority-based notification routing
+    urgent: [slack, desktop]            # default: ["slack", "desktop"]
+    action: [desktop]                   # default: ["desktop"]
+    warning: [desktop]                  # default: ["desktop"]
+    info: []                            # default: [] (no notifications)
+
+# Web server (dashboard, webhooks, REST API)
+web:
+  enabled: false                        # default: false
+  port: 3100                            # default: 3100
+  host: localhost                       # default: "localhost"
+  webhookSecret: ~                      # HMAC secret for GitHub webhook verification
 ```
 
 ## Per-Project Overrides
