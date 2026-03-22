@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 export interface PendingApproval {
 	id: string;
@@ -12,11 +14,62 @@ export interface PendingApproval {
 	reason?: string;
 }
 
+/**
+ * File-backed approval gate for human-in-the-loop tool call decisions.
+ * Each approval is stored as a JSON file in the storePath directory.
+ */
 export class ApprovalGate {
-	private store: Map<string, PendingApproval>;
+	constructor(private readonly storePath?: string) {}
 
-	constructor(private readonly storePath?: string) {
-		this.store = new Map();
+	private approvalPath(id: string): string {
+		if (!this.storePath) {
+			throw new Error("ApprovalGate requires a storePath for persistence");
+		}
+		return path.join(this.storePath, `${id}.json`);
+	}
+
+	private async ensureDir(): Promise<void> {
+		if (this.storePath) {
+			await fs.promises.mkdir(this.storePath, { recursive: true });
+		}
+	}
+
+	private async save(approval: PendingApproval): Promise<void> {
+		await this.ensureDir();
+		await fs.promises.writeFile(
+			this.approvalPath(approval.id),
+			JSON.stringify(approval, null, "\t"),
+			"utf-8",
+		);
+	}
+
+	private async load(id: string): Promise<PendingApproval | undefined> {
+		try {
+			const data = await fs.promises.readFile(this.approvalPath(id), "utf-8");
+			return JSON.parse(data) as PendingApproval;
+		} catch {
+			return undefined;
+		}
+	}
+
+	private async loadAll(): Promise<PendingApproval[]> {
+		if (!this.storePath) return [];
+		try {
+			const files = await fs.promises.readdir(this.storePath);
+			const approvals: PendingApproval[] = [];
+			for (const file of files) {
+				if (!file.endsWith(".json")) continue;
+				try {
+					const data = await fs.promises.readFile(path.join(this.storePath, file), "utf-8");
+					approvals.push(JSON.parse(data) as PendingApproval);
+				} catch {
+					// skip corrupt files
+				}
+			}
+			return approvals;
+		} catch {
+			return [];
+		}
 	}
 
 	async requestApproval(opts: {
@@ -34,7 +87,7 @@ export class ApprovalGate {
 			timeoutMs: opts.timeoutMs ?? 300_000,
 			status: "pending",
 		};
-		this.store.set(approval.id, approval);
+		await this.save(approval);
 		return approval;
 	}
 
@@ -43,7 +96,7 @@ export class ApprovalGate {
 		decision: "approve" | "deny",
 		reason?: string,
 	): Promise<PendingApproval> {
-		const approval = this.store.get(approvalId);
+		const approval = await this.load(approvalId);
 		if (!approval) {
 			throw new Error(`Approval '${approvalId}' not found`);
 		}
@@ -53,32 +106,45 @@ export class ApprovalGate {
 			return approval;
 		}
 
+		// Check for timeout before responding
+		const elapsed = Date.now() - new Date(approval.requestedAt).getTime();
+		if (elapsed > approval.timeoutMs) {
+			approval.status = "timed_out";
+			approval.resolvedAt = new Date().toISOString();
+			await this.save(approval);
+			return approval;
+		}
+
 		approval.status = decision === "approve" ? "approved" : "denied";
 		approval.resolvedAt = new Date().toISOString();
 		if (reason) {
 			approval.reason = reason;
 		}
 
+		await this.save(approval);
 		return approval;
 	}
 
 	async getPending(): Promise<PendingApproval[]> {
-		return Array.from(this.store.values()).filter((a) => a.status === "pending");
+		const all = await this.loadAll();
+		return all.filter((a) => a.status === "pending");
 	}
 
 	async get(id: string): Promise<PendingApproval | undefined> {
-		return this.store.get(id);
+		return this.load(id);
 	}
 
 	async sweepTimeouts(): Promise<number> {
 		let count = 0;
 		const now = Date.now();
-		for (const approval of this.store.values()) {
+		const all = await this.loadAll();
+		for (const approval of all) {
 			if (approval.status !== "pending") continue;
 			const elapsed = now - new Date(approval.requestedAt).getTime();
 			if (elapsed > approval.timeoutMs) {
 				approval.status = "timed_out";
 				approval.resolvedAt = new Date().toISOString();
+				await this.save(approval);
 				count++;
 			}
 		}

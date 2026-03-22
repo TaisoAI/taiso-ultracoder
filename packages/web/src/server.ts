@@ -52,7 +52,9 @@ export class WebServer {
 
 			server.listen(this.config.port, this.config.host, () => {
 				this.server = server;
-				const url = `http://${this.config.host}:${this.config.port}`;
+				const addr = server.address();
+				const actualPort = typeof addr === "object" && addr ? addr.port : this.config.port;
+				const url = `http://${this.config.host}:${actualPort}`;
 				resolve({ url });
 			});
 		});

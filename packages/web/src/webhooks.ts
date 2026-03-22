@@ -35,12 +35,13 @@ export function mapGitHubEvent(
 	eventType: string,
 	payload: Record<string, unknown>,
 ): UltracoderEvent | null {
-	const sessionId = String(
-		(payload as Record<string, Record<string, unknown>>).pull_request?.id ??
-			(payload as Record<string, Record<string, unknown>>).check_suite
-				?.id ??
-			"unknown",
-	);
+	// Try to extract a branch-based session ID (ultracoder branches are "uc-<sessionId>")
+	const prPayload = payload.pull_request as Record<string, unknown> | undefined;
+	const head = prPayload?.head as Record<string, unknown> | undefined;
+	const branch = String(head?.ref ?? "");
+	const sessionId = branch.startsWith("uc-")
+		? branch.slice(3)
+		: String(prPayload?.id ?? (payload.check_suite as Record<string, unknown> | undefined)?.id ?? "unknown");
 
 	switch (eventType) {
 		case "pull_request": {
@@ -65,8 +66,8 @@ export function mapGitHubEvent(
 		}
 
 		case "check_suite": {
-			const conclusion = payload.conclusion as string | undefined;
 			const cs = payload.check_suite as Record<string, unknown> | undefined;
+			const conclusion = (cs?.conclusion ?? payload.conclusion) as string | undefined;
 			const ref = String(cs?.head_sha ?? "unknown");
 
 			if (conclusion === "success") {

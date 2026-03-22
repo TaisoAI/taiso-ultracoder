@@ -112,7 +112,8 @@ export async function runQualityPipeline(
 
 	const veracityPassed = !veracity.some((f) => f.severity === "error");
 	const fsVeracityPassed = !filesystemVeracity.some((f) => f.severity === "error");
-	const toolPolicyPassed = toolPolicyDecisions.every((d) => d.allowed);
+	// Tools requiring approval are not failures — they're paused, not blocked
+	const toolPolicyPassed = toolPolicyDecisions.every((d) => d.allowed || d.requiresApproval);
 	const gatesPassed = gates?.passed ?? true;
 	const reviewPassed = !review || review.decision !== "request_changes";
 

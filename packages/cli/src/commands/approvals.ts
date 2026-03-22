@@ -1,11 +1,14 @@
 import { ApprovalGate } from "@ultracoder/quality";
 import { Command } from "commander";
+import { buildContext } from "../context.js";
 
 export function approvalsCommand(): Command {
 	return new Command("approvals")
 		.description("List pending tool call approvals")
 		.action(async () => {
-			const gate = new ApprovalGate();
+			const ctx = await buildContext();
+			const gate = new ApprovalGate(`${ctx.paths.dataDir()}/approvals`);
+			await gate.sweepTimeouts();
 			const pending = await gate.getPending();
 
 			if (pending.length === 0) {

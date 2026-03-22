@@ -1,9 +1,22 @@
-import { describe, expect, it } from "vitest";
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ApprovalGate } from "./approval-gate.js";
 
 describe("ApprovalGate", () => {
+	let tmpDir: string;
+
+	beforeEach(async () => {
+		tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "approval-gate-"));
+	});
+
+	afterEach(async () => {
+		await fs.promises.rm(tmpDir, { recursive: true, force: true });
+	});
+
 	it("requestApproval creates a pending record with correct fields", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		const approval = await gate.requestApproval({
 			sessionId: "sess-1",
 			tool: "bash:rm -rf /tmp/foo",
@@ -22,7 +35,7 @@ describe("ApprovalGate", () => {
 	});
 
 	it("respond('approve') transitions status to approved", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		const approval = await gate.requestApproval({
 			sessionId: "sess-1",
 			tool: "bash:git push",
@@ -35,7 +48,7 @@ describe("ApprovalGate", () => {
 	});
 
 	it("respond('deny') transitions status to denied with reason", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		const approval = await gate.requestApproval({
 			sessionId: "sess-1",
 			tool: "bash:rm -rf /",
@@ -49,7 +62,7 @@ describe("ApprovalGate", () => {
 	});
 
 	it("getPending returns only pending items", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		const a1 = await gate.requestApproval({
 			sessionId: "sess-1",
 			tool: "tool-a",
@@ -68,7 +81,7 @@ describe("ApprovalGate", () => {
 	});
 
 	it("sweepTimeouts marks expired approvals as timed_out", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		const approval = await gate.requestApproval({
 			sessionId: "sess-1",
 			tool: "bash:slow-task",
@@ -88,14 +101,14 @@ describe("ApprovalGate", () => {
 	});
 
 	it("throws when responding to non-existent ID", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		await expect(gate.respond("nonexistent", "approve")).rejects.toThrow(
 			"Approval 'nonexistent' not found",
 		);
 	});
 
 	it("double-respond is idempotent", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		const approval = await gate.requestApproval({
 			sessionId: "sess-1",
 			tool: "bash:deploy",
@@ -112,7 +125,7 @@ describe("ApprovalGate", () => {
 	});
 
 	it("requestApproval uses custom timeoutMs", async () => {
-		const gate = new ApprovalGate();
+		const gate = new ApprovalGate(tmpDir);
 		const approval = await gate.requestApproval({
 			sessionId: "sess-1",
 			tool: "tool",
@@ -120,5 +133,25 @@ describe("ApprovalGate", () => {
 			timeoutMs: 60_000,
 		});
 		expect(approval.timeoutMs).toBe(60_000);
+	});
+
+	it("persists approvals across gate instances", async () => {
+		const gate1 = new ApprovalGate(tmpDir);
+		const approval = await gate1.requestApproval({
+			sessionId: "sess-1",
+			tool: "bash:deploy",
+			context: "Deploy",
+		});
+
+		// New instance reading the same directory
+		const gate2 = new ApprovalGate(tmpDir);
+		const loaded = await gate2.get(approval.id);
+		expect(loaded).toBeDefined();
+		expect(loaded!.tool).toBe("bash:deploy");
+		expect(loaded!.status).toBe("pending");
+
+		// Respond via second instance
+		const result = await gate2.respond(approval.id, "approve");
+		expect(result.status).toBe("approved");
 	});
 });
