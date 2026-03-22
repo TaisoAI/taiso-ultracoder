@@ -22,7 +22,10 @@ describe("CLI", () => {
 		expect(commandNames).toContain("logs");
 		expect(commandNames).toContain("dashboard");
 		expect(commandNames).toContain("monitor");
-		expect(commandNames).toHaveLength(14);
+		expect(commandNames).toContain("approvals");
+		expect(commandNames).toContain("approve");
+		expect(commandNames).toContain("deny");
+		expect(commandNames).toHaveLength(17);
 	});
 });
 

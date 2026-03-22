@@ -31,6 +31,7 @@ export interface ToolPolicyDecision {
 	tool: string;
 	tier: ApprovalTier;
 	allowed: boolean;
+	requiresApproval?: boolean;
 	reason?: string;
 	matchedRule?: ToolPolicyRule;
 }
@@ -272,7 +273,8 @@ export function evaluateToolPolicy(
 			return {
 				tool,
 				tier: rule.tier,
-				allowed: rule.tier !== "blocked",
+				allowed: rule.tier !== "blocked" && rule.tier !== "human",
+				requiresApproval: rule.tier === "human" ? true : undefined,
 				reason: rule.reason,
 				matchedRule: rule,
 			};
@@ -294,7 +296,8 @@ export function evaluateToolPolicy(
 	return {
 		tool,
 		tier,
-		allowed: tier !== "blocked",
+		allowed: tier !== "blocked" && tier !== "human",
+		requiresApproval: tier === "human" ? true : undefined,
 	};
 }
 

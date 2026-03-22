@@ -1,7 +1,10 @@
 import { Command } from "commander";
+import { approvalsCommand } from "./commands/approvals.js";
+import { approveCommand } from "./commands/approve.js";
 import { batchSpawnCommand } from "./commands/batch-spawn.js";
 import { cleanupCommand } from "./commands/cleanup.js";
 import { dashboardCommand } from "./commands/dashboard.js";
+import { denyCommand } from "./commands/deny.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { initCommand } from "./commands/init.js";
 import { killCommand } from "./commands/kill.js";
@@ -19,6 +22,9 @@ export function createProgram(): Command {
 
 	program.name("uc").description("Ultracoder — AI coding agent orchestration").version("0.0.1");
 
+	program.addCommand(approvalsCommand());
+	program.addCommand(approveCommand());
+	program.addCommand(denyCommand());
 	program.addCommand(initCommand());
 	program.addCommand(spawnCommand());
 	program.addCommand(startCommand());

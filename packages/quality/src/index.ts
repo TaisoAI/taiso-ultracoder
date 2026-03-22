@@ -29,3 +29,6 @@ export type { ReviewerConfig } from "./reviewer.js";
 
 export { runQualityPipeline } from "./pipeline.js";
 export type { QualityPipelineConfig, QualityPipelineResult } from "./pipeline.js";
+
+export { ApprovalGate } from "./approval-gate.js";
+export type { PendingApproval } from "./approval-gate.js";

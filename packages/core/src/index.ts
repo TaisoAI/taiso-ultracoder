@@ -62,6 +62,7 @@ export {
 	ProjectConfigSchema,
 	QualityConfigSchema,
 	SessionConfigSchema,
+	WebConfigSchema,
 } from "./schemas.js";
 
 // Utilities
@@ -84,7 +85,7 @@ export { loadConfig, mergeConfig } from "./config.js";
 
 // LLM Router
 export { WeightedRouter } from "./llm-router.js";
-export type { LLMEndpoint } from "./llm-router.js";
+export type { LLMEndpoint, EndpointHealth, WeightedRouterOpts } from "./llm-router.js";
 
 // State machine
 export { canTransition, SESSION_TRANSITIONS, validEvents } from "./state-machine.js";
@@ -106,3 +107,11 @@ export type { PromptContext } from "./prompt-builder.js";
 // Spawn pipeline
 export { runSpawnPipeline } from "./spawn-pipeline.js";
 export type { SpawnPipelineOpts, SpawnPipelineResult } from "./spawn-pipeline.js";
+
+// Events
+export { createEventBus } from "./events.js";
+export type { EventBus, UltracoderEvent, UltracoderEventType } from "./events.js";
+
+// Notification router
+export { NotificationRouter, DEFAULT_ROUTING } from "./notification-router.js";
+export type { NotificationRoutingConfig } from "./notification-router.js";

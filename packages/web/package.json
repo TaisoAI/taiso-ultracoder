@@ -1,5 +1,5 @@
 {
-  "name": "@ultracoder/cli",
+  "name": "@ultracoder/web",
   "version": "0.0.1",
   "type": "module",
   "main": "dist/index.js",
@@ -11,27 +11,22 @@
     }
   },
   "dependencies": {
-    "@ultracoder/core": "workspace:*",
-    "@ultracoder/experiment": "workspace:*",
-    "@ultracoder/issue-monitor": "workspace:*",
-    "@ultracoder/quality": "workspace:*",
-    "commander": "^12.1.0"
+    "@ultracoder/core": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
   },
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist *.tsbuildinfo",
-    "prepublishOnly": "pnpm run build"
-  },
-  "bin": {
-    "uc": "dist/bin.js"
+    "clean": "rm -rf dist *.tsbuildinfo"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/TaisoAI/taiso-ultracoder.git",
-    "directory": "packages/cli"
+    "directory": "packages/web"
   },
   "files": [
     "dist",

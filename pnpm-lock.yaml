@@ -35,6 +35,9 @@ importers:
       '@ultracoder/issue-monitor':
         specifier: workspace:*
         version: link:../issue-monitor
+      '@ultracoder/quality':
+        specifier: workspace:*
+        version: link:../quality
       commander:
         specifier: ^12.1.0
         version: 12.1.0
@@ -152,6 +155,16 @@ importers:
       '@ultracoder/core':
         specifier: workspace:*
         version: link:../core
+
+  packages/web:
+    dependencies:
+      '@ultracoder/core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      vitest:
+        specifier: ^2.1.9
+        version: 2.1.9(@types/node@25.5.0)
 
 packages:
 

@@ -168,6 +168,16 @@ export const IssueMonitorConfigSchema = z
 	})
 	.default({});
 
+// ─── Web Configuration ─────────────────────────────────────────────
+export const WebConfigSchema = z
+	.object({
+		enabled: z.boolean().default(false),
+		port: z.number().positive().default(3100),
+		host: z.string().default("localhost"),
+		webhookSecret: z.string().optional(),
+	})
+	.default({});
+
 // ─── Project Configuration ──────────────────────────────────────────
 export const ProjectConfigSchema = z.object({
 	projectId: z.string().min(1),
@@ -187,6 +197,7 @@ export const ProjectConfigSchema = z.object({
 		.default({}),
 	experiments: ExperimentConfigSchema,
 	issueMonitor: IssueMonitorConfigSchema,
+	web: WebConfigSchema,
 	notifications: z
 		.object({
 			desktop: z.boolean().default(true),
@@ -194,6 +205,14 @@ export const ProjectConfigSchema = z.object({
 				.object({
 					enabled: z.boolean().default(false),
 					webhook: z.string().optional(),
+				})
+				.default({}),
+			routing: z
+				.object({
+					urgent: z.array(z.string()).default(["slack", "desktop"]),
+					action: z.array(z.string()).default(["desktop"]),
+					warning: z.array(z.string()).default(["desktop"]),
+					info: z.array(z.string()).default([]),
 				})
 				.default({}),
 		})

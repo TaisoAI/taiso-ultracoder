@@ -35,3 +35,9 @@ export type { HandoffMetrics, HandoffReport } from "./handoff.js";
 
 export { finalize } from "./finalization.js";
 export type { FinalizationConfig, FinalizationResult } from "./finalization.js";
+
+export { shouldReplan, replan } from "./replanner.js";
+export type { ReplanDecision, ReplanContext, ReplanResult } from "./replanner.js";
+
+export { identifyConflictFiles, generateConflictTask } from "./conflict-resolver.js";
+export type { ConflictTask } from "./conflict-resolver.js";

@@ -1,4 +1,5 @@
 import type { z } from "zod";
+import type { EventBus } from "./events.js";
 import type { AgentConfigSchema, ProjectConfigSchema, SessionConfigSchema } from "./schemas.js";
 import type { SessionEvent } from "./state-machine.js";
 
@@ -188,6 +189,7 @@ export interface Notification {
 	title: string;
 	body: string;
 	level: "info" | "warn" | "error" | "success";
+	priority?: "urgent" | "action" | "warning" | "info";
 	sessionId?: string;
 	url?: string;
 }
@@ -222,6 +224,7 @@ export interface Deps {
 	plugins: PluginRegistry;
 	sessions: SessionManager;
 	paths: PathResolver;
+	events?: EventBus;
 }
 
 // ─── Logger ─────────────────────────────────────────────────────────

@@ -25,3 +25,6 @@ export type { WorkerConfig } from "./worker.js";
 
 export { handleAutoResume, buildResumeContext } from "./auto-resume.js";
 export type { AutoResumeConfig, ResumeContext } from "./auto-resume.js";
+
+export { detectQuestion, tryAutoAnswer } from "./question-detector.js";
+export type { QuestionDetection, AutoAnswerResult } from "./question-detector.js";

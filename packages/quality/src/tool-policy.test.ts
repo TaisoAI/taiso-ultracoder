@@ -27,7 +27,8 @@ describe("evaluateToolPolicy", () => {
 			defaultTier: "auto",
 		});
 		expect(result.tier).toBe("human");
-		expect(result.allowed).toBe(true);
+		expect(result.allowed).toBe(false);
+		expect(result.requiresApproval).toBe(true);
 	});
 
 	it("uses default tier for unknown tools", () => {
