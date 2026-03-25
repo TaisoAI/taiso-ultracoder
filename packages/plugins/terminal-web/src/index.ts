@@ -7,9 +7,7 @@ export interface TerminalWebConfig {
 	host?: string; // default: "localhost"
 }
 
-export interface TerminalPlugin extends Plugin<"reviewer"> {
-	// Using "reviewer" slot temporarily since there's no "terminal" slot
-	// This plugin provides a simple HTTP endpoint for session status
+export interface TerminalPlugin extends Plugin<"terminal"> {
 	start(): Promise<{ url: string }>;
 	stop(): Promise<void>;
 }
@@ -20,7 +18,7 @@ export function create(config: TerminalWebConfig = {}): TerminalPlugin {
 	let server: ReturnType<typeof createServer> | null = null;
 
 	return {
-		meta: { name: "terminal-web", slot: "reviewer", version: "0.0.1" },
+		meta: { name: "terminal-web", slot: "terminal", version: "0.0.1" },
 
 		async start() {
 			// Simple JSON API server for session monitoring

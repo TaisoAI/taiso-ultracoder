@@ -58,10 +58,10 @@ ultracoder/
 │   ├── parallel/        — Recursive decomposer, re-planner, conflict resolver, scope tracker, merge queue, reconciler
 │   ├── experiment/      — Optimization loop, metric runner, confidence scoring, secondary metrics, termination
 │   ├── observability/   — NDJSON tracing, cost tracking, recovery system
-│   └── plugins/         — 11 plugins across 7 slots
+│   └── plugins/         — 11 plugins across 8 slots
 ```
 
-### Plugin Slots (7)
+### Plugin Slots (8)
 
 | Slot | Implementations | Purpose |
 |------|----------------|---------|
@@ -72,6 +72,7 @@ ultracoder/
 | scm | github | PRs, CI status, merge operations via `gh` CLI |
 | notifier | desktop, slack | Notifications (OS-native, webhook) |
 | reviewer | (built-in) | Automated code review via quality package |
+| terminal | terminal-web | Web-based terminal UI for session monitoring |
 
 ### Session Lifecycle (13 States)
 
@@ -238,7 +239,7 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 ```bash
 pnpm install        # Install dependencies
 pnpm build          # Build all 21 packages
-pnpm test           # Run 860+ tests across 42 suites
+pnpm test           # Run 862+ tests across 42 suites
 pnpm lint           # Check 107+ files with Biome
 pnpm lint:fix       # Auto-fix lint issues
 ```
@@ -254,7 +255,7 @@ pnpm lint:fix       # Auto-fix lint issues
 
 ### Monorepo Structure
 
-21 packages, 840+ tests, all managed with pnpm workspaces + Turborepo:
+21 packages, 862+ tests, all managed with pnpm workspaces + Turborepo:
 
 | Package | Tests | Description |
 |---------|-------|-------------|
@@ -262,7 +263,7 @@ pnpm lint:fix       # Auto-fix lint issues
 | `@ultracoder/cli` | 4 | Commander.js CLI with 17 commands |
 | `@ultracoder/web` | 20 | HTTP server, GitHub webhooks (HMAC verification), REST API, SSE real-time events, inline web dashboard |
 | `@ultracoder/issue-monitor` | 69 | GitHub issue polling, dual-agent triage (Claude + Codex), synthesis, auto-fix spawning |
-| `@ultracoder/quality` | 118 | Veracity (regex + LLM + filesystem), tool policy (4-tier), approval gate, gates, pipeline |
+| `@ultracoder/quality` | 119 | Veracity (regex + LLM + filesystem), tool policy (4-tier), approval gate, gates, pipeline |
 | `@ultracoder/lifecycle` | 168 | 13-state machine, reactions, intent classifier, question detection & auto-answer, activity detection, rate-limited auto-resume |
 | `@ultracoder/parallel` | 87 | Recursive task decomposer, re-planner, conflict resolver, scope tracker, merge queue, reconciler, finalization |
 | `@ultracoder/experiment` | 54 | Experiment runner, metric evaluation, MAD-based confidence scoring, secondary metrics, termination checks |

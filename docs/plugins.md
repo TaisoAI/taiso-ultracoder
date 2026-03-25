@@ -1,6 +1,6 @@
 # Plugins
 
-Ultracoder uses a 7-slot plugin architecture. Each slot serves a specific role, and you can swap implementations to fit your infrastructure.
+Ultracoder uses an 8-slot plugin architecture. Each slot serves a specific role, and you can swap implementations to fit your infrastructure.
 
 ## Plugin Slots
 
@@ -13,6 +13,7 @@ Ultracoder uses a 7-slot plugin architecture. Each slot serves a specific role, 
 | `scm` | PRs, CI, merge operations | `scm-github` |
 | `notifier` | Notifications | `notifier-desktop`, `notifier-slack` |
 | `reviewer` | Automated code review | Built-in (quality package) |
+| `terminal` | Web-based terminal UI | `terminal-web` |
 
 ## Runtime Plugins
 

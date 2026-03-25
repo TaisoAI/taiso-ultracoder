@@ -90,10 +90,33 @@ export class IssueMonitor {
 
 		this.logger.debug("Issues found", { count: issues.length });
 
-		// Process each issue
-		for (const issue of issues) {
-			await this.processIssue(issue, tracker);
+		// Process issues concurrently with a simple semaphore to respect limits.
+		// Each processIssue call checks activeAssessments/activeSpawns internally,
+		// so we limit overall concurrency here to avoid overwhelming the system.
+		const concurrency = this.config.maxConcurrentAssessments;
+		let running = 0;
+		let idx = 0;
+		const results: Promise<void>[] = [];
+
+		const runNext = async (): Promise<void> => {
+			while (idx < issues.length) {
+				const issue = issues[idx++];
+				try {
+					await this.processIssue(issue, tracker);
+				} catch (err) {
+					this.logger.error("Unexpected error processing issue", {
+						issueId: issue.id,
+						error: err instanceof Error ? err.message : String(err),
+					});
+				}
+			}
+		};
+
+		// Launch up to `concurrency` workers
+		for (let i = 0; i < Math.min(concurrency, issues.length); i++) {
+			results.push(runNext());
 		}
+		await Promise.all(results);
 	}
 
 	private async processIssue(issue: TrackerIssue, tracker: TrackerPlugin): Promise<void> {

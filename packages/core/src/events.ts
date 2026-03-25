@@ -34,6 +34,7 @@ export interface EventBus {
 	on<T extends UltracoderEventType>(type: T, handler: (event: Extract<UltracoderEvent, { type: T }>) => void): void;
 	off<T extends UltracoderEventType>(type: T, handler: (event: Extract<UltracoderEvent, { type: T }>) => void): void;
 	onAny(handler: (event: UltracoderEvent) => void): void;
+	offAny(handler: (event: UltracoderEvent) => void): void;
 }
 
 const WILDCARD = "*";
@@ -65,6 +66,10 @@ export function createEventBus(): EventBus {
 
 		onAny(handler: (event: UltracoderEvent) => void): void {
 			emitter.on(WILDCARD, handler);
+		},
+
+		offAny(handler: (event: UltracoderEvent) => void): void {
+			emitter.off(WILDCARD, handler as (...args: unknown[]) => void);
 		},
 	};
 }

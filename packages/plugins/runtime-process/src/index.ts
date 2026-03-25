@@ -24,11 +24,34 @@ export function create(config: ProcessRuntimeConfig = {}): RuntimePlugin {
 				stdio: ["pipe", "pipe", "pipe"],
 			});
 
-			const pid = child.pid;
-			if (pid === undefined) {
-				throw new Error("Failed to spawn process: no pid assigned");
+			// Attach error listener immediately to prevent uncaught 'error' events
+			// from crashing the host process (e.g. ENOENT when command not found).
+			let spawnFailed = false;
+			const spawnError = await new Promise<Error | null>((resolve) => {
+				child.on("error", (err) => {
+					if (!spawnFailed) {
+						spawnFailed = true;
+						resolve(err);
+					}
+					// After spawn, later errors (e.g. broken pipe) are non-fatal —
+					// the process will emit 'exit' and be cleaned up normally.
+				});
+				// If pid is assigned synchronously, spawn succeeded
+				if (child.pid !== undefined) {
+					resolve(null);
+				} else {
+					// Give a tick for the error event to fire
+					setImmediate(() => resolve(child.pid === undefined
+						? new Error("Failed to spawn process: no pid assigned")
+						: null));
+				}
+			});
+
+			if (spawnError) {
+				throw new Error(`Failed to spawn process: ${spawnError.message}`);
 			}
 
+			const pid = child.pid!;
 			const id = String(pid);
 			activeProcesses.set(id, child);
 

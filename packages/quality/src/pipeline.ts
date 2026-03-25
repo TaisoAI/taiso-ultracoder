@@ -77,8 +77,8 @@ export async function runQualityPipeline(
 		errors.push(`Filesystem veracity check failed: ${message}`);
 	}
 
-	// Stage 2: Tool policy evaluation
-	if (opts.toolCalls) {
+	// Stage 2: Tool policy evaluation (skip if disabled in config)
+	if (opts.toolCalls && config.toolPolicy.enabled !== false) {
 		for (const tool of opts.toolCalls) {
 			const decision = evaluateToolPolicy(tool, config.toolPolicy);
 			toolPolicyDecisions.push(decision);
@@ -96,8 +96,8 @@ export async function runQualityPipeline(
 		errors.push(`Quality gates failed: ${message}`);
 	}
 
-	// Stage 4: Reviewer
-	if (opts.diff && opts.task && opts.sessionId) {
+	// Stage 4: Reviewer (skip if disabled in config)
+	if (opts.diff && opts.task && opts.sessionId && config.reviewer.enabled !== false) {
 		try {
 			review = await reviewDiff(
 				{ diff: opts.diff, task: opts.task, sessionId: opts.sessionId },

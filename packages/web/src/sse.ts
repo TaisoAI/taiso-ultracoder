@@ -7,9 +7,22 @@ import type { EventBus, UltracoderEvent } from "@ultracoder/core";
  */
 export class SSEManager {
 	private clients = new Set<ServerResponse>();
+	private readonly eventBus: EventBus;
+	private readonly handler: (event: import("@ultracoder/core").UltracoderEvent) => void;
 
 	constructor(eventBus: EventBus) {
-		eventBus.onAny((event) => this.broadcast(event));
+		this.eventBus = eventBus;
+		this.handler = (event) => this.broadcast(event);
+		eventBus.onAny(this.handler);
+	}
+
+	/** Unsubscribe from the event bus and close all SSE connections. */
+	destroy(): void {
+		this.eventBus.offAny(this.handler);
+		for (const client of this.clients) {
+			client.end();
+		}
+		this.clients.clear();
 	}
 
 	/** Register a new SSE client. Sets appropriate headers and handles disconnect. */

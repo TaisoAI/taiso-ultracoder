@@ -12,6 +12,7 @@ export const PLUGIN_SLOTS = [
 	"scm",
 	"notifier",
 	"reviewer",
+	"terminal",
 ] as const;
 
 export type PluginSlot = (typeof PLUGIN_SLOTS)[number];

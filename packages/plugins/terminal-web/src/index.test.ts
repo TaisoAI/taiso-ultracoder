@@ -14,7 +14,7 @@ describe("terminal-web", () => {
 	it("create() returns a valid plugin with correct meta", () => {
 		plugin = create();
 		expect(plugin.meta.name).toBe("terminal-web");
-		expect(plugin.meta.slot).toBe("reviewer");
+		expect(plugin.meta.slot).toBe("terminal");
 		expect(plugin.meta.version).toBe("0.0.1");
 	});
 

@@ -75,7 +75,7 @@ This is the "ground truth" layer — regex catches suspicious claims, filesystem
 
 ## Stage 2: Tool Policy (4-Tier)
 
-Controls which tools agents are allowed to use.
+Controls which tools agents are allowed to use. This stage is skipped entirely when `toolPolicy.enabled` is set to `false` in configuration.
 
 | Tier | Behavior |
 |------|----------|
@@ -165,7 +165,7 @@ session:
 
 ## Stage 4: Reviewer Agent
 
-Optional second AI instance in read-only mode that reviews the agent's diff.
+Optional second AI instance in read-only mode that reviews the agent's diff. This stage is skipped when `reviewer.enabled` is set to `false` in configuration.
 
 Produces structured verdicts:
 - **approve** — Changes look good

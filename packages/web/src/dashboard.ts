@@ -66,6 +66,8 @@ export function renderDashboardHTML(): string {
   var ACTIVE_STATUSES = ["spawning", "working", "pr_open", "review_pending"];
   var FAILED_STATUSES = ["failed", "ci_failed", "killed"];
 
+  function esc(s) { var d = document.createElement("div"); d.appendChild(document.createTextNode(s || "")); return d.innerHTML; }
+  function escAttr(s) { return esc(s).replace(/"/g, "&quot;").replace(/'/g, "&#39;"); }
   function truncate(s, n) { return s && s.length > n ? s.slice(0, n) + "..." : s || ""; }
 
   function renderSessions(sessions) {
@@ -81,13 +83,13 @@ export function renderDashboardHTML(): string {
     sessionsEl.innerHTML = sessions.map(function(s) {
       return '<div class="card">' +
         '<div class="card-header">' +
-          '<span class="card-id">' + s.id.slice(0, 12) + '</span>' +
-          '<span class="badge badge-' + s.status + '">' + s.status.replace(/_/g, " ") + '</span>' +
+          '<span class="card-id">' + esc(s.id.slice(0, 12)) + '</span>' +
+          '<span class="badge badge-' + escAttr(s.status) + '">' + esc(s.status.replace(/_/g, " ")) + '</span>' +
         '</div>' +
-        '<div class="card-task">' + truncate(s.task, 80) + '</div>' +
+        '<div class="card-task">' + esc(truncate(s.task, 80)) + '</div>' +
         '<div class="card-meta">' +
-          '<span>' + s.agentType + '</span>' +
-          '<span>' + s.branch + '</span>' +
+          '<span>' + esc(s.agentType) + '</span>' +
+          '<span>' + esc(s.branch) + '</span>' +
         '</div>' +
       '</div>';
     }).join("");

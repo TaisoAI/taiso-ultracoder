@@ -61,6 +61,7 @@ export class WebServer {
 	}
 
 	async stop(): Promise<void> {
+		this.sse.destroy();
 		return new Promise((resolve, reject) => {
 			if (!this.server) {
 				resolve();
@@ -137,7 +138,13 @@ export class WebServer {
 		req: IncomingMessage,
 		res: ServerResponse,
 	): Promise<void> {
-		const body = await this.readBody(req);
+		let body: string;
+		try {
+			body = await this.readBody(req);
+		} catch {
+			this.sendJson(res, 413, { error: "Request body too large" });
+			return;
+		}
 
 		if (this.config.webhookSecret) {
 			const signature =
@@ -169,12 +176,31 @@ export class WebServer {
 		}
 	}
 
-	private readBody(req: IncomingMessage): Promise<string> {
+	private readBody(req: IncomingMessage, maxBytes = 1_048_576): Promise<string> {
 		return new Promise((resolve, reject) => {
 			const chunks: Buffer[] = [];
-			req.on("data", (chunk: Buffer) => chunks.push(chunk));
-			req.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-			req.on("error", reject);
+			let totalBytes = 0;
+			let aborted = false;
+			req.on("data", (chunk: Buffer) => {
+				totalBytes += chunk.length;
+				if (totalBytes > maxBytes && !aborted) {
+					aborted = true;
+					// Resume and drain the stream so the socket isn't left half-read,
+					// but don't buffer any more data.
+					req.resume();
+					reject(new Error("Request body too large"));
+					return;
+				}
+				if (!aborted) {
+					chunks.push(chunk);
+				}
+			});
+			req.on("end", () => {
+				if (!aborted) resolve(Buffer.concat(chunks).toString("utf8"));
+			});
+			req.on("error", (err) => {
+				if (!aborted) reject(err);
+			});
 		});
 	}
 

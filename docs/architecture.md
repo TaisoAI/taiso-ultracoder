@@ -93,7 +93,7 @@ Ultracoder synthesizes patterns from four open-source projects, following these 
 
 ## Plugin Architecture
 
-### 7 Slots
+### 8 Slots
 
 Each slot has a TypeScript interface in `@ultracoder/core/types.ts`. Plugins implement the interface and export a `create(config)` factory function.
 
