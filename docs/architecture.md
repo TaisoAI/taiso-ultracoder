@@ -121,7 +121,7 @@ Plugins are loaded dynamically via a `PluginImporter` callback. The CLI passes i
 
 ### Plugin Security
 
-`@ultracoder/*` packages are trusted by default. Custom plugins require explicit opt-in via `trustedPlugins` config or `--allow-custom-plugins` flag.
+`@ultracoder/*` packages are trusted by default. Custom plugins require explicit opt-in via the `trustedPlugins` array in `ultracoder.yaml`.
 
 ## State Management
 

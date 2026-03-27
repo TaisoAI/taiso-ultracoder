@@ -24,7 +24,7 @@ Synthesizes the best patterns from [tcagent](https://github.com/TaisoAI/tcagent)
 
 ```bash
 git clone https://github.com/TaisoAI/taiso-ultracoder.git
-cd ultracoder
+cd taiso-ultracoder
 pnpm install && pnpm build
 ```
 
@@ -58,7 +58,7 @@ ultracoder/
 │   ├── parallel/        — Recursive decomposer, re-planner, conflict resolver, scope tracker, merge queue, reconciler
 │   ├── experiment/      — Optimization loop, metric runner, confidence scoring, secondary metrics, termination
 │   ├── observability/   — NDJSON tracing, cost tracking, recovery system
-│   └── plugins/         — 11 plugins across 8 slots
+│   └── plugins/         — 12 plugins across 8 slots
 ```
 
 ### Plugin Slots (8)
@@ -213,14 +213,14 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 | `uc init` | Initialize ultracoder.yaml in current project |
 | `uc spawn <task>` | Spawn a new agent session |
 | `uc start <id>` | Resume a spawning or failed session |
-| `uc stop <id>` | Gracefully pause a working session |
+| `uc stop <id>` | Stop a working session (kills runtime, sets status to failed) |
 | `uc send <id> <message>` | Send a message to a working session |
 | `uc status` | List all sessions |
 | `uc status -s <id> --json` | Detailed session info as JSON |
 | `uc kill <id>` | Kill runtime, archive session |
-| `uc batch-spawn <file>` | Spawn sessions from a task file |
-| `uc watch <id>` | Stream live session output |
-| `uc logs <id>` | View session logs |
+| `uc batch-spawn <file>` | Spawn sessions from a task file (one task per line) |
+| `uc watch` | Live status table that refreshes on changes |
+| `uc logs <id>` | View session logs (`--follow` for streaming) |
 | `uc dashboard` | Live terminal dashboard with session status, costs, warnings |
 | `uc monitor start` | Start polling GitHub for new issues and auto-triaging |
 | `uc monitor status` | Show monitored issues and their pipeline states |
@@ -228,18 +228,16 @@ Config search order: explicit `--config` path → project directory → `~/.ultr
 | `uc approvals` | List pending tool call approvals |
 | `uc approve <id>` | Approve a pending tool call |
 | `uc deny <id> [reason]` | Deny a pending tool call |
-| `uc web start` | Start the web dashboard and webhook server |
-| `uc web stop` | Stop the web server |
-| `uc cleanup` | Remove old terminal sessions (default: >7 days) |
-| `uc cleanup --all` | Remove all terminal sessions |
-| `uc doctor` | Check system health and dependencies |
+| `uc cleanup` | Remove non-running session records |
+| `uc cleanup --all` | Remove all session records |
+| `uc doctor` | Check system health and configured dependencies |
 
 ## Development
 
 ```bash
 pnpm install        # Install dependencies
 pnpm build          # Build all 21 packages
-pnpm test           # Run 862+ tests across 42 suites
+pnpm test           # Run 862 tests across 69 test files
 pnpm lint           # Check 107+ files with Biome
 pnpm lint:fix       # Auto-fix lint issues
 ```
@@ -259,7 +257,7 @@ Ultracoder runs on Windows using `runtime-process` (no tmux needed). Agent plugi
 
 ### Monorepo Structure
 
-21 packages, 862+ tests, all managed with pnpm workspaces + Turborepo:
+21 packages, 862 tests, all managed with pnpm workspaces + Turborepo:
 
 | Package | Tests | Description |
 |---------|-------|-------------|
@@ -272,7 +270,7 @@ Ultracoder runs on Windows using `runtime-process` (no tmux needed). Agent plugi
 | `@ultracoder/parallel` | 87 | Recursive task decomposer, re-planner, conflict resolver, scope tracker, merge queue, reconciler, finalization |
 | `@ultracoder/experiment` | 54 | Experiment runner, metric evaluation, MAD-based confidence scoring, secondary metrics, termination checks |
 | `@ultracoder/observability` | 25 | NDJSON tracing, cost tracking, recovery |
-| 12 plugins | 161 | Runtime (tmux, process, docker), agent (claude-code, codex), workspace, tracker, SCM, notifier, terminal implementations |
+| 12 plugins | 156 | Runtime (tmux, process, docker), agent (claude-code, codex), workspace, tracker, SCM, notifier, terminal implementations |
 
 ## Documentation
 

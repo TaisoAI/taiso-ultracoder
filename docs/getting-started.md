@@ -12,7 +12,7 @@
 
 ```bash
 git clone https://github.com/TaisoAI/taiso-ultracoder.git
-cd ultracoder
+cd taiso-ultracoder
 pnpm install
 pnpm build
 ```
