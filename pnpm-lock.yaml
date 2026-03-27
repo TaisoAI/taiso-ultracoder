@@ -59,6 +59,9 @@ importers:
       '@ultracoder/plugin-scm-github':
         specifier: workspace:*
         version: link:../plugins/scm-github
+      '@ultracoder/plugin-terminal-web':
+        specifier: workspace:*
+        version: link:../plugins/terminal-web
       '@ultracoder/plugin-tracker-github':
         specifier: workspace:*
         version: link:../plugins/tracker-github

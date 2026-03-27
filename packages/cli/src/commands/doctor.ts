@@ -28,11 +28,11 @@ export function doctorCommand(): Command {
 
 			// Runtime checks — only check what's configured
 			const runtimePkg = pluginPackages.runtime ?? "";
-			if (runtimePkg.includes("runtime-tmux")) {
+			if (isPackage(runtimePkg, "plugin-runtime-tmux")) {
 				await checkCommand("tmux", ["-V"], "tmux");
-			} else if (runtimePkg.includes("runtime-docker")) {
+			} else if (isPackage(runtimePkg, "plugin-runtime-docker")) {
 				await checkCommand("docker", ["--version"], "Docker");
-			} else if (runtimePkg.includes("runtime-process")) {
+			} else if (isPackage(runtimePkg, "plugin-runtime-process")) {
 				skip("tmux", "not required (using runtime-process)");
 			} else if (runtimePkg) {
 				skip("tmux", `not required (using ${runtimePkg})`);
@@ -42,9 +42,9 @@ export function doctorCommand(): Command {
 
 			// Agent checks — only check the configured agent CLI
 			const agentPkg = pluginPackages.agent ?? "";
-			if (agentPkg.includes("agent-claude-code")) {
+			if (isPackage(agentPkg, "plugin-agent-claude-code")) {
 				await checkCommand("claude", ["--version"], "Claude Code");
-			} else if (agentPkg.includes("agent-codex")) {
+			} else if (isPackage(agentPkg, "plugin-agent-codex")) {
 				await checkCommand("codex", ["--version"], "Codex");
 			} else if (!agentPkg) {
 				// No agent configured — check both as defaults
@@ -56,8 +56,8 @@ export function doctorCommand(): Command {
 			const trackerPkg = pluginPackages.tracker ?? "";
 			const scmPkg = pluginPackages.scm ?? "";
 			if (
-				trackerPkg.includes("github") ||
-				scmPkg.includes("github") ||
+				isPackage(trackerPkg, "plugin-tracker-github") ||
+				isPackage(scmPkg, "plugin-scm-github") ||
 				(!trackerPkg && !scmPkg)
 			) {
 				await checkCommand("gh", ["--version"], "GitHub CLI");
@@ -79,6 +79,11 @@ function fail(label: string, detail: string): void {
 
 function skip(label: string, detail: string): void {
 	console.log(`  [SKIP] ${label}: ${detail}`);
+}
+
+/** Check if a package name matches a known plugin (handles @ultracoder/ prefix). */
+function isPackage(pkg: string, name: string): boolean {
+	return pkg === `@ultracoder/${name}` || pkg === name;
 }
 
 async function checkCommand(cmd: string, args: string[], label: string): Promise<void> {

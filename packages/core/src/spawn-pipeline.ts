@@ -132,17 +132,24 @@ export async function runSpawnPipeline(
 			cwd: workspacePath,
 			name: `uc-${session.id}`,
 			onExit: (_handle, code) => {
-				const newStatus = code === 0 ? "pr_open" : "failed";
-				deps.sessions.update(session.id, { status: newStatus }).catch((err) => {
-					logger.error("Failed to update session on process exit", {
+				// Use state machine transitions so this is race-safe with
+				// the lifecycle worker. Invalid transitions (e.g. session
+				// already killed) are silently rejected by the state machine.
+				const event = code === 0 ? "open_pr" : "fail";
+				deps.sessions.transition(session.id, event).catch((err) => {
+					// Transition rejected — session may already be in a
+					// terminal state (killed, failed, archived). This is
+					// expected and safe to ignore.
+					logger.debug("onExit transition rejected (likely already handled)", {
 						sessionId: session.id,
+						event,
 						error: String(err),
 					});
 				});
-				logger.info(`Agent process exited`, {
+				logger.info("Agent process exited", {
 					sessionId: session.id,
 					exitCode: code,
-					newStatus,
+					event,
 				});
 			},
 		});

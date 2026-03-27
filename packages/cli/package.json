@@ -26,6 +26,7 @@
     "@ultracoder/plugin-scm-github": "workspace:*",
     "@ultracoder/plugin-notifier-desktop": "workspace:*",
     "@ultracoder/plugin-notifier-slack": "workspace:*",
+    "@ultracoder/plugin-terminal-web": "workspace:*",
     "commander": "^12.1.0"
   },
   "scripts": {

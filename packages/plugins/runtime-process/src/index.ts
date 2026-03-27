@@ -18,13 +18,10 @@ export function create(config: ProcessRuntimeConfig = {}): RuntimePlugin {
 		},
 
 		async spawn(opts: RuntimeSpawnOpts): Promise<RuntimeHandle> {
-			const isWindows = process.platform === "win32";
 			const child = cpSpawn(opts.command, opts.args, {
 				cwd: opts.cwd,
 				env: opts.env ? { ...process.env, ...opts.env } : undefined,
 				stdio: ["pipe", "pipe", "pipe"],
-				// On Windows, .cmd/.bat files require shell: true
-				...(isWindows ? { shell: true } : {}),
 			});
 
 			// Attach error listener immediately to prevent uncaught 'error' events
