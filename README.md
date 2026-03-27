@@ -23,7 +23,7 @@ Synthesizes the best patterns from [tcagent](https://github.com/TaisoAI/tcagent)
 ## Quick Start
 
 ```bash
-git clone https://github.com/taiso-ai/ultracoder.git
+git clone https://github.com/TaisoAI/taiso-ultracoder.git
 cd ultracoder
 pnpm install && pnpm build
 ```
