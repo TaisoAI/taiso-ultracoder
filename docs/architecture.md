@@ -61,8 +61,9 @@ Ultracoder synthesizes patterns from four open-source projects, following these 
      → Check maxConcurrentSessions limit (excludes current session)
      → WorkspacePlugin.create() → git worktree
      → AgentPlugin.buildCommand() → claude -p "task" --output-format stream-json
-     → RuntimePlugin.spawn() → tmux new-session
+     → RuntimePlugin.spawn() → tmux new-session (or process/docker)
      → SessionManager.update() → status: "working"
+     → onExit callback wired to transition session on process exit
    → On failure: session set to "failed", error thrown
 
 2. Lifecycle Worker (every 30s):
@@ -113,7 +114,7 @@ export default create;
 
 ### Dynamic Loading
 
-Plugins are loaded dynamically via `import(packageName)`. The registry handles:
+Plugins are loaded dynamically via a `PluginImporter` callback. The CLI passes its own `import()` context so plugins resolve from the CLI's `node_modules`, which is required for pnpm strict module isolation. The registry handles:
 - Graceful degradation on load/init failure (failing plugin removed, others continue)
 - One plugin per slot (later registration replaces earlier)
 - Lifecycle management (initAll/destroyAll)

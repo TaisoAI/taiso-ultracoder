@@ -248,10 +248,14 @@ pnpm lint:fix       # Auto-fix lint issues
 
 - Node.js 20+
 - pnpm 9+
-- tmux (for tmux runtime plugin)
 - git (for worktree workspace plugin)
-- gh CLI (for GitHub tracker/SCM plugins)
 - Claude Code CLI or Codex CLI (agent to orchestrate)
+- tmux (macOS/Linux, for tmux runtime plugin) — not required when using `runtime-process` or `runtime-docker`
+- gh CLI (for GitHub tracker/SCM plugins)
+
+### Windows Support
+
+Ultracoder runs on Windows using `runtime-process` (no tmux needed). Agent plugins automatically resolve `.cmd`/`.bat` extensions via `where`. Run `uc doctor` to verify your setup — it only checks tools required by your configured plugins.
 
 ### Monorepo Structure
 
@@ -268,7 +272,7 @@ pnpm lint:fix       # Auto-fix lint issues
 | `@ultracoder/parallel` | 87 | Recursive task decomposer, re-planner, conflict resolver, scope tracker, merge queue, reconciler, finalization |
 | `@ultracoder/experiment` | 54 | Experiment runner, metric evaluation, MAD-based confidence scoring, secondary metrics, termination checks |
 | `@ultracoder/observability` | 25 | NDJSON tracing, cost tracking, recovery |
-| 11 plugins | 156 | Runtime (tmux, process, docker), agent, workspace, tracker, SCM, notifier implementations |
+| 12 plugins | 161 | Runtime (tmux, process, docker), agent (claude-code, codex), workspace, tracker, SCM, notifier, terminal implementations |
 
 ## Documentation
 

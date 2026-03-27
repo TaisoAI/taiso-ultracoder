@@ -92,6 +92,8 @@ plugins:
 
 Parses Claude's stream-JSON output to detect activity states (idle, active, tool calls, completion).
 
+**Windows:** The plugin automatically resolves `claude` to its full path (e.g., `claude.cmd`) using the `where` command. You can also set `claudePath` to the full path explicitly.
+
 ### agent-codex
 
 Builds commands for OpenAI's Codex CLI.
@@ -105,6 +107,8 @@ plugins:
 ```
 
 **Generated command:** `codex --task "<task>"`
+
+**Windows:** The plugin automatically resolves `codex` to its full path using the `where` command, same as `agent-claude-code`.
 
 ## Workspace Plugins
 

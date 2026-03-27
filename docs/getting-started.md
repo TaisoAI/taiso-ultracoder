@@ -4,9 +4,9 @@
 
 - **Node.js 20+** — [Download](https://nodejs.org)
 - **pnpm 9+** — `npm install -g pnpm`
-- **tmux** — `brew install tmux` (macOS) or `apt install tmux` (Linux)
 - **git** — Already installed on most systems
 - **An AI coding agent** — Claude Code (`claude`) or OpenAI Codex (`codex`) CLI installed
+- **tmux** (optional) — `brew install tmux` (macOS) or `apt install tmux` (Linux). Only needed when using `runtime-tmux` plugin. On Windows, use `runtime-process` instead.
 
 ## Installation
 
