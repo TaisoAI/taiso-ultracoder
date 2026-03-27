@@ -35,9 +35,12 @@ export async function buildContext(opts?: {
 		logger,
 	});
 
-	// Load configured plugins
+	// Load configured plugins.
+	// Pass the CLI's own import() context so that plugin packages resolve from
+	// the CLI's node_modules — required for pnpm strict module isolation.
+	const cliImporter = (name: string) => import(name);
 	for (const [, ref] of Object.entries(config.plugins)) {
-		await loadPlugin(ref.package, ref.config, plugins, logger, config.trustedPlugins);
+		await loadPlugin(ref.package, ref.config, plugins, logger, config.trustedPlugins, cliImporter);
 	}
 
 	const deps: Deps = { config, logger, plugins, sessions, paths };

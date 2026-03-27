@@ -18,10 +18,13 @@ export function create(config: ProcessRuntimeConfig = {}): RuntimePlugin {
 		},
 
 		async spawn(opts: RuntimeSpawnOpts): Promise<RuntimeHandle> {
+			const isWindows = process.platform === "win32";
 			const child = cpSpawn(opts.command, opts.args, {
 				cwd: opts.cwd,
 				env: opts.env ? { ...process.env, ...opts.env } : undefined,
 				stdio: ["pipe", "pipe", "pipe"],
+				// On Windows, .cmd/.bat files require shell: true
+				...(isWindows ? { shell: true } : {}),
 			});
 
 			// Attach error listener immediately to prevent uncaught 'error' events
@@ -55,11 +58,16 @@ export function create(config: ProcessRuntimeConfig = {}): RuntimePlugin {
 			const id = String(pid);
 			activeProcesses.set(id, child);
 
-			child.on("exit", () => {
+			const handle: RuntimeHandle = { id, pid };
+
+			child.on("exit", (code, signal) => {
 				activeProcesses.delete(id);
+				if (opts.onExit) {
+					opts.onExit(handle, code, signal);
+				}
 			});
 
-			return { id, pid };
+			return handle;
 		},
 
 		async kill(handle: RuntimeHandle): Promise<void> {

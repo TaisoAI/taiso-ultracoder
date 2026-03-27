@@ -1,4 +1,4 @@
-import type { Deps, Plugin, PluginForSlot, PluginRegistry, PluginSlot } from "./types.js";
+import type { Deps, Plugin, PluginForSlot, PluginImporter, PluginRegistry, PluginSlot } from "./types.js";
 import { PLUGIN_SLOTS } from "./types.js";
 import type { Logger } from "./types.js";
 
@@ -94,6 +94,7 @@ export async function loadPlugin(
 	registry: DefaultPluginRegistry,
 	logger: Logger,
 	trustedPlugins?: readonly string[],
+	importer?: PluginImporter,
 ): Promise<void> {
 	if (!isPluginTrusted(packageName, trustedPlugins)) {
 		logger.warn(
@@ -102,8 +103,10 @@ export async function loadPlugin(
 		return;
 	}
 
+	const importFn = importer ?? ((name: string) => import(name));
+
 	try {
-		const mod = (await import(packageName)) as {
+		const mod = (await importFn(packageName)) as {
 			default?: Plugin | ((cfg: Record<string, unknown>) => Plugin);
 			create?: (cfg: Record<string, unknown>) => Plugin;
 		};

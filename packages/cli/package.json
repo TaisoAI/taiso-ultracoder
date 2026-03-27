@@ -15,6 +15,17 @@
     "@ultracoder/experiment": "workspace:*",
     "@ultracoder/issue-monitor": "workspace:*",
     "@ultracoder/quality": "workspace:*",
+    "@ultracoder/plugin-runtime-tmux": "workspace:*",
+    "@ultracoder/plugin-runtime-process": "workspace:*",
+    "@ultracoder/plugin-runtime-docker": "workspace:*",
+    "@ultracoder/plugin-agent-claude-code": "workspace:*",
+    "@ultracoder/plugin-agent-codex": "workspace:*",
+    "@ultracoder/plugin-workspace-worktree": "workspace:*",
+    "@ultracoder/plugin-workspace-clone": "workspace:*",
+    "@ultracoder/plugin-tracker-github": "workspace:*",
+    "@ultracoder/plugin-scm-github": "workspace:*",
+    "@ultracoder/plugin-notifier-desktop": "workspace:*",
+    "@ultracoder/plugin-notifier-slack": "workspace:*",
     "commander": "^12.1.0"
   },
   "scripts": {

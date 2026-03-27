@@ -11,28 +11,59 @@ export function doctorCommand(): Command {
 		.action(async () => {
 			console.log("Ultracoder Doctor\n");
 
-			// Check config
+			// Load config to determine which plugins are configured
+			let pluginPackages: Record<string, string> = {};
 			try {
 				const ctx = await buildContext();
 				check("Config", `Loaded (project: ${ctx.config.projectId})`);
+				for (const [slot, ref] of Object.entries(ctx.config.plugins)) {
+					pluginPackages[slot] = ref.package;
+				}
 			} catch (err) {
 				fail("Config", err instanceof Error ? err.message : String(err));
 			}
 
-			// Check git
+			// Always check git
 			await checkCommand("git", ["--version"], "Git");
 
-			// Check tmux
-			await checkCommand("tmux", ["-V"], "tmux");
+			// Runtime checks — only check what's configured
+			const runtimePkg = pluginPackages.runtime ?? "";
+			if (runtimePkg.includes("runtime-tmux")) {
+				await checkCommand("tmux", ["-V"], "tmux");
+			} else if (runtimePkg.includes("runtime-docker")) {
+				await checkCommand("docker", ["--version"], "Docker");
+			} else if (runtimePkg.includes("runtime-process")) {
+				skip("tmux", "not required (using runtime-process)");
+			} else if (runtimePkg) {
+				skip("tmux", `not required (using ${runtimePkg})`);
+			} else {
+				await checkCommand("tmux", ["-V"], "tmux");
+			}
 
-			// Check claude
-			await checkCommand("claude", ["--version"], "Claude Code");
+			// Agent checks — only check the configured agent CLI
+			const agentPkg = pluginPackages.agent ?? "";
+			if (agentPkg.includes("agent-claude-code")) {
+				await checkCommand("claude", ["--version"], "Claude Code");
+			} else if (agentPkg.includes("agent-codex")) {
+				await checkCommand("codex", ["--version"], "Codex");
+			} else if (!agentPkg) {
+				// No agent configured — check both as defaults
+				await checkCommand("claude", ["--version"], "Claude Code");
+				await checkCommand("codex", ["--version"], "Codex");
+			}
 
-			// Check codex
-			await checkCommand("codex", ["--version"], "Codex");
-
-			// Check gh
-			await checkCommand("gh", ["--version"], "GitHub CLI");
+			// GitHub CLI — only if tracker or scm uses github
+			const trackerPkg = pluginPackages.tracker ?? "";
+			const scmPkg = pluginPackages.scm ?? "";
+			if (
+				trackerPkg.includes("github") ||
+				scmPkg.includes("github") ||
+				(!trackerPkg && !scmPkg)
+			) {
+				await checkCommand("gh", ["--version"], "GitHub CLI");
+			} else {
+				skip("gh", "not required (no GitHub plugins configured)");
+			}
 
 			console.log("\nDone.");
 		});
@@ -44,6 +75,10 @@ function check(label: string, detail: string): void {
 
 function fail(label: string, detail: string): void {
 	console.log(`  [FAIL] ${label}: ${detail}`);
+}
+
+function skip(label: string, detail: string): void {
+	console.log(`  [SKIP] ${label}: ${detail}`);
 }
 
 async function checkCommand(cmd: string, args: string[], label: string): Promise<void> {

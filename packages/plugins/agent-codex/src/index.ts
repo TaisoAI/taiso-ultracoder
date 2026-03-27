@@ -1,4 +1,22 @@
+import { execFileSync } from "node:child_process";
+import { extname } from "node:path";
 import type { AgentActivity, AgentCommandOpts, AgentPlugin } from "@ultracoder/core";
+
+/**
+ * Resolve a bare command name to its full path on Windows.
+ */
+function resolveCommand(name: string): string {
+	if (process.platform !== "win32") return name;
+	if (name.includes("/") || name.includes("\\") || extname(name)) return name;
+	try {
+		const result = execFileSync("where", [name], { encoding: "utf8", timeout: 5000 });
+		const firstLine = result.trim().split(/\r?\n/)[0];
+		if (firstLine) return firstLine;
+	} catch {
+		// Fall back to appending .cmd
+	}
+	return `${name}.cmd`;
+}
 
 export interface CodexAgentConfig {
 	codexPath?: string;
@@ -6,7 +24,7 @@ export interface CodexAgentConfig {
 }
 
 export function create(config: CodexAgentConfig = {}): AgentPlugin {
-	const codexPath = config.codexPath ?? "codex";
+	const codexPath = resolveCommand(config.codexPath ?? "codex");
 
 	return {
 		meta: {

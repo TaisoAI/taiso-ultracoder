@@ -1,5 +1,26 @@
+import { execFileSync } from "node:child_process";
+import { extname } from "node:path";
 import type { AgentActivity, AgentCommandOpts, AgentPlugin } from "@ultracoder/core";
 import { ClaudeStreamParser } from "./stream-parser.js";
+
+/**
+ * Resolve a bare command name to its full path on Windows.
+ * On Windows, child_process.spawn() cannot find .cmd/.bat files
+ * without an explicit extension or shell: true.
+ */
+function resolveCommand(name: string): string {
+	if (process.platform !== "win32") return name;
+	// If already has a path separator or extension, use as-is
+	if (name.includes("/") || name.includes("\\") || extname(name)) return name;
+	try {
+		const result = execFileSync("where", [name], { encoding: "utf8", timeout: 5000 });
+		const firstLine = result.trim().split(/\r?\n/)[0];
+		if (firstLine) return firstLine;
+	} catch {
+		// Fall back to appending .cmd
+	}
+	return `${name}.cmd`;
+}
 
 export interface ClaudeCodeAgentConfig {
 	claudePath?: string;
@@ -7,7 +28,7 @@ export interface ClaudeCodeAgentConfig {
 }
 
 export function create(config: ClaudeCodeAgentConfig = {}): AgentPlugin {
-	const claudePath = config.claudePath ?? "claude";
+	const claudePath = resolveCommand(config.claudePath ?? "claude");
 	const parser = new ClaudeStreamParser();
 
 	return {

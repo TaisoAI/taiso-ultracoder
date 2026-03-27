@@ -35,6 +35,39 @@ importers:
       '@ultracoder/issue-monitor':
         specifier: workspace:*
         version: link:../issue-monitor
+      '@ultracoder/plugin-agent-claude-code':
+        specifier: workspace:*
+        version: link:../plugins/agent-claude-code
+      '@ultracoder/plugin-agent-codex':
+        specifier: workspace:*
+        version: link:../plugins/agent-codex
+      '@ultracoder/plugin-notifier-desktop':
+        specifier: workspace:*
+        version: link:../plugins/notifier-desktop
+      '@ultracoder/plugin-notifier-slack':
+        specifier: workspace:*
+        version: link:../plugins/notifier-slack
+      '@ultracoder/plugin-runtime-docker':
+        specifier: workspace:*
+        version: link:../plugins/runtime-docker
+      '@ultracoder/plugin-runtime-process':
+        specifier: workspace:*
+        version: link:../plugins/runtime-process
+      '@ultracoder/plugin-runtime-tmux':
+        specifier: workspace:*
+        version: link:../plugins/runtime-tmux
+      '@ultracoder/plugin-scm-github':
+        specifier: workspace:*
+        version: link:../plugins/scm-github
+      '@ultracoder/plugin-tracker-github':
+        specifier: workspace:*
+        version: link:../plugins/tracker-github
+      '@ultracoder/plugin-workspace-clone':
+        specifier: workspace:*
+        version: link:../plugins/workspace-clone
+      '@ultracoder/plugin-workspace-worktree':
+        specifier: workspace:*
+        version: link:../plugins/workspace-worktree
       '@ultracoder/quality':
         specifier: workspace:*
         version: link:../quality

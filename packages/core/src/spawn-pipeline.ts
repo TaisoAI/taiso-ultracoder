@@ -131,6 +131,20 @@ export async function runSpawnPipeline(
 			args: cmd.args,
 			cwd: workspacePath,
 			name: `uc-${session.id}`,
+			onExit: (_handle, code) => {
+				const newStatus = code === 0 ? "pr_open" : "failed";
+				deps.sessions.update(session.id, { status: newStatus }).catch((err) => {
+					logger.error("Failed to update session on process exit", {
+						sessionId: session.id,
+						error: String(err),
+					});
+				});
+				logger.info(`Agent process exited`, {
+					sessionId: session.id,
+					exitCode: code,
+					newStatus,
+				});
+			},
 		});
 
 		await deps.sessions.update(session.id, {

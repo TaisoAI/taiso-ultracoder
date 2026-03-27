@@ -19,6 +19,7 @@ export type {
 	PathResolver,
 	Plugin,
 	PluginForSlot,
+	PluginImporter,
 	PluginMeta,
 	PluginRegistry,
 	PluginSlot,

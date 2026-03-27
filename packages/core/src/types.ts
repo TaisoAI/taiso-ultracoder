@@ -76,6 +76,9 @@ export interface RuntimeSpawnOpts {
 	cwd: string;
 	env?: Record<string, string>;
 	name?: string;
+	/** Optional callback fired when the process exits. Allows the spawn pipeline
+	 *  to react immediately instead of waiting for the next lifecycle poll cycle. */
+	onExit?: (handle: RuntimeHandle, code: number | null, signal: string | null) => void;
 }
 
 export interface RuntimeHandle {
@@ -212,6 +215,14 @@ export interface ReviewVerdict {
 	summary: string;
 	comments: Array<{ file: string; line: number; body: string }>;
 }
+
+// ─── Plugin Importer ────────────────────────────────────────────────
+/**
+ * Callback that performs a dynamic import. The caller can provide its own
+ * `import()` context so that plugins resolve from the caller's node_modules
+ * instead of core's (important for pnpm strict isolation).
+ */
+export type PluginImporter = (packageName: string) => Promise<unknown>;
 
 // ─── Configuration ──────────────────────────────────────────────────
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
